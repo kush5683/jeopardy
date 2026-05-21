@@ -12,9 +12,93 @@ import { dailyRouter } from "./routes/daily";
 import { reviewRouter } from "./routes/review";
 import { preferencesRouter } from "./routes/preferences";
 
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function hostIsLocal(host: string): boolean {
+  const normalized = host.toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized.startsWith("localhost:") ||
+    normalized === "127.0.0.1" ||
+    normalized.startsWith("127.0.0.1:") ||
+    normalized === "[::1]" ||
+    normalized.startsWith("[::1]:")
+  );
+}
+
+function headerOriginHost(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function contentSecurityPolicy(): string {
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "img-src 'self' data: https:",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "script-src 'self' https://accounts.google.com/gsi/client https://apis.google.com",
+    "connect-src 'self' https://accounts.google.com https://*.google.com https://*.googleapis.com https://*.gstatic.com",
+    "frame-src 'self' https://accounts.google.com https://*.google.com",
+  ].join("; ");
+}
+
 export function createApp() {
   const app = express();
+  app.disable("x-powered-by");
+
+  app.use((req, res, next) => {
+    const host = (req.headers.host ?? "").toLowerCase();
+    res.setHeader("Content-Security-Policy", contentSecurityPolicy());
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    res.setHeader("Origin-Agent-Cluster", "?1");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    if (host && !hostIsLocal(host)) {
+      res.setHeader(
+        "Strict-Transport-Security",
+        "max-age=15552000; includeSubDomains",
+      );
+    }
+    next();
+  });
+
   app.use(express.json({ limit: "1mb" }));
+  app.use((req, res, next) => {
+    if (!MUTATING_METHODS.has(req.method)) {
+      next();
+      return;
+    }
+    const host = (req.headers.host ?? "").toLowerCase();
+    if (!host) {
+      res.status(400).json({ error: "missing host header" });
+      return;
+    }
+    const originHost =
+      headerOriginHost(
+        typeof req.headers.origin === "string" ? req.headers.origin : undefined,
+      ) ??
+      headerOriginHost(
+        typeof req.headers.referer === "string"
+          ? req.headers.referer
+          : undefined,
+      );
+    if (originHost && originHost !== host) {
+      res.status(403).json({ error: "cross-site request blocked" });
+      return;
+    }
+    next();
+  });
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
   app.use("/api/auth", authRouter);

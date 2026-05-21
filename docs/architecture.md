@@ -98,8 +98,8 @@ Notable components:
 
 ### Client State Patterns
 
-- Auth state is kept in `localStorage`
-- API `401`s clear stale auth and redirect to login
+- Auth state is bootstrapped from `/api/auth/me`; the browser credential itself lives in an `HttpOnly` same-site cookie
+- API `401`s redirect to login
 - Some in-progress game state is also persisted locally for resume-on-refresh behavior
 - Browser-native speech APIs are used for optional text-to-speech and voice recognition
 
@@ -121,6 +121,8 @@ Notable components:
 - `/api/preferences`
 
 This separation keeps tests able to import the app without starting a real server.
+It also centralizes baseline response headers and a same-origin guard for
+mutating browser requests.
 
 ### Middleware
 
@@ -243,8 +245,8 @@ Those aliases feed back into the answer matcher.
 
 - JWTs are signed with `JWT_SECRET`
 - tokens expire after 30 days
-- the frontend stores both the token and the user payload in `localStorage`
-- authenticated routes use `Authorization: Bearer <token>`
+- the browser app stores the JWT in an `HttpOnly` same-site cookie scoped to `/api`
+- authenticated routes accept that cookie and can also honor `Authorization: Bearer <token>` for internal tooling
 - optional auth is used where anonymous access still makes sense, such as the global leaderboard or flashcard deck inspection
 
 ## Rate Limiting

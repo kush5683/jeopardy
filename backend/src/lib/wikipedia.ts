@@ -1,6 +1,8 @@
 import { pickWikiTitleWithLLM } from "./llmJudge";
 
-const UA = "jeopardy.kushshah.net/1.0 (kush@kushshah.net)";
+const UA =
+  process.env.WIKIPEDIA_USER_AGENT?.trim() ||
+  "JeopardyTrainer/1.0 (configure WIKIPEDIA_USER_AGENT in production)";
 
 export type WikiData = {
   title: string;

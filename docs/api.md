@@ -6,9 +6,9 @@ Base path: `/api`
 
 ### Authentication
 
-- Authenticated endpoints require `Authorization: Bearer <jwt>`
-- Tokens are issued by `/auth/register`, `/auth/login`, and `/auth/google`
-- Some endpoints use optional auth and return richer data when a valid token is present
+- The browser app authenticates with an `HttpOnly` same-site session cookie set by `/auth/register`, `/auth/login`, and `/auth/google`
+- Protected endpoints also accept `Authorization: Bearer <jwt>` for internal tools and tests
+- Some endpoints use optional auth and return richer data when a valid session is present
 
 ### Rate Limits
 
@@ -39,6 +39,7 @@ Validation errors from `zod` return the flattened error object instead of a sing
 | `POST` | `/auth/register` | no | Create an email/password account |
 | `POST` | `/auth/login` | no | Log in with email/password |
 | `POST` | `/auth/google` | no | Log in with Google ID token |
+| `POST` | `/auth/logout` | no | Clear the session cookie |
 | `GET` | `/auth/config` | no | Returns Google client config for the frontend |
 | `GET` | `/auth/me` | yes | Returns account profile and auth capabilities |
 | `PATCH` | `/auth/me` | yes | Update display name |
@@ -49,7 +50,7 @@ Validation errors from `zod` return the flattened error object instead of a sing
 
 ```json
 POST /auth/register
-{ "email": "user@example.com", "password": "password123", "displayName": "Kush" }
+{ "email": "user@example.com", "password": "password123", "displayName": "Player 1" }
 ```
 
 ```json
@@ -81,7 +82,8 @@ DELETE /auth/me
 
 ### Auth Responses
 
-- register/login/google return `{ token, user }`
+- register/login/google return `{ user }` and set the session cookie
+- `/auth/logout` returns `{ ok: true }` and clears the session cookie
 - `/auth/me` returns `hasPassword` and `hasGoogle` booleans rather than raw credential data
 
 ## Clues

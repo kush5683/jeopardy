@@ -16,7 +16,7 @@ type Me = {
 
 export function Settings() {
   useDocumentTitle("Settings");
-  const { user, logout } = useAuth();
+  const { user, logout, replaceUser } = useAuth();
   const nav = useNavigate();
   const [me, setMe] = useState<Me | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -59,7 +59,17 @@ export function Settings() {
         </p>
       </header>
 
-      <ProfileSection me={me} onUpdated={(m) => setMe(m)} />
+      <ProfileSection
+        me={me}
+        onUpdated={(m) => {
+          setMe(m);
+          replaceUser({
+            id: m.id,
+            email: m.email,
+            displayName: m.displayName,
+          });
+        }}
+      />
       <PasswordSection me={me} onUpdated={load} />
       <DangerSection
         onDeleted={() => {
@@ -92,17 +102,6 @@ function ProfileSection({
     try {
       const { data } = await api.patch("/auth/me", { displayName });
       onUpdated({ ...me, displayName: data.user.displayName });
-      // Keep the persisted user in sync with the new name.
-      const stored = localStorage.getItem("jeopardy_user");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          parsed.displayName = data.user.displayName;
-          localStorage.setItem("jeopardy_user", JSON.stringify(parsed));
-        } catch {
-          // ignore
-        }
-      }
       setMsg({ kind: "ok", text: "Saved." });
     } catch (e: any) {
       const raw = e?.response?.data?.error;

@@ -2,14 +2,13 @@ import { describe, it, expect } from "vitest";
 import { newAgent, registerUser, authHeader } from "./helpers";
 
 describe("auth + friends", () => {
-  it("registers a user and returns a usable token", async () => {
+  it("registers a user and sets a usable session cookie", async () => {
     const agent = newAgent();
-    const { token, userId } = await registerUser(agent);
-    expect(token).toMatch(/^ey/);
+    const { cookies, userId } = await registerUser(agent);
+    expect(cookies.some((cookie) => cookie.startsWith("jeopardy_session="))).toBe(true);
     expect(userId).toBeTruthy();
 
-    // Token should work on a protected endpoint
-    const me = await agent.get("/api/stats/me").set(authHeader(token)).expect(200);
+    const me = await agent.get("/api/stats/me").expect(200);
     expect(me.body).toHaveProperty("totalAnswered", 0);
   });
 
@@ -38,7 +37,20 @@ describe("auth + friends", () => {
       .post("/api/auth/login")
       .send({ email, password: "password1" })
       .expect(200);
-    expect(res.body.token).toMatch(/^ey/);
+    expect(res.body.user.email).toBe(email);
+    const cookies = Array.isArray(res.headers["set-cookie"])
+      ? res.headers["set-cookie"]
+      : [];
+    expect(cookies.some((cookie) => cookie.startsWith("jeopardy_session="))).toBe(
+      true,
+    );
+  });
+
+  it("logout clears the session cookie", async () => {
+    const agent = newAgent();
+    await registerUser(agent);
+    await agent.post("/api/auth/logout").expect(200);
+    await agent.get("/api/stats/me").expect(401);
   });
 
   it("friends/request does not enumerate emails", async () => {
@@ -81,5 +93,6 @@ describe("auth + friends", () => {
       .expect(200);
     expect(pending.body.incoming).toHaveLength(1);
     expect(pending.body.incoming[0].from.id).toBe(a.userId);
+    expect(pending.body.incoming[0].from).not.toHaveProperty("email");
   });
 });

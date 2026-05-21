@@ -6,10 +6,9 @@ import { RetryPanel } from "../components/RetryPanel";
 type Friend = {
   id: string;
   displayName: string;
-  email: string;
   friendshipId: string;
 };
-type PendingPerson = { id: string; displayName: string; email: string };
+type PendingPerson = { id: string; displayName: string };
 type Pending = {
   incoming: { id: string; from: PendingPerson; createdAt: string }[];
   outgoing: { id: string; to: PendingPerson; createdAt: string }[];
@@ -137,7 +136,6 @@ export function Friends() {
               <div key={p.id} className="flex items-center justify-between bg-white/5 px-3 py-2 rounded">
                 <div>
                   <div className="font-semibold">{p.from.displayName}</div>
-                  <div className="text-xs text-white/60">{p.from.email}</div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => respond(p.id, true)} className="px-3 py-2 bg-green-700/60 rounded text-sm min-h-[40px]">Accept</button>
@@ -158,9 +156,7 @@ export function Friends() {
                 key={p.id}
                 className="bg-white/5 px-3 py-2 rounded text-sm flex items-center justify-between gap-2"
               >
-                <span className="min-w-0 break-words">
-                  {p.to.displayName} <span className="text-white/50">({p.to.email})</span>
-                </span>
+                <span className="min-w-0 break-words">{p.to.displayName}</span>
                 <button
                   onClick={() => cancelOutgoing(p.id)}
                   className="px-3 py-1.5 text-xs border border-white/30 hover:bg-white/10 rounded shrink-0"
@@ -183,7 +179,6 @@ export function Friends() {
               <div key={f.id} className="flex items-center justify-between gap-2 bg-white/5 px-3 py-2 rounded">
                 <div className="min-w-0">
                   <div className="font-semibold break-words">{f.displayName}</div>
-                  <div className="text-xs text-white/60 break-words">{f.email}</div>
                 </div>
                 <button
                   onClick={() => removeFriend(f)}

@@ -22,7 +22,10 @@ The root `.env.example` is primarily a Docker Compose input file. The backend pr
 | `SEED_DB` | optional | container startup | `true` runs `backend/prisma/seed.ts` after migrations |
 | `NODE_ENV` | optional | backend | Usually `development`, `test`, or `production` |
 | `PORT` | optional | backend | Defaults to `3000` |
+| `COOKIE_SECURE` | optional | auth cookie | Set to `1` to force `Secure`, `0` to force insecure local cookies |
 | `OLLAMA_HOST` | optional | LLM judge, hints, wiki chooser | Defaults to `http://localhost:11434` on host, `http://host.docker.internal:11434` in Docker |
+| `TRUST_PROXY_HEADERS` | optional | rate limiting | Set to `1` if the app sits behind a non-local reverse proxy hop and should trust `CF-Connecting-IP` / `X-Forwarded-For` |
+| `WIKIPEDIA_USER_AGENT` | optional | Wikipedia fetcher | Contact string for outbound Wikipedia/Wikidata requests |
 | `LLM_JUDGE_MODEL` | optional | `backend/src/lib/llmJudge.ts` | Defaults to `qwen2.5:7b` |
 | `LLM_JUDGE_DISABLED` | optional | tests or local fallback | Set to `1` to skip all LLM calls |
 | `LLM_JUDGE_TIMEOUT_MS` | optional | LLM judge | Defaults to `4000` |
@@ -165,9 +168,8 @@ Before using it:
 
 ## Frontend Behavior Worth Knowing
 
-- Auth state is stored in `localStorage` via `frontend/src/contexts/AuthContext.tsx`.
-- The shared API client in `frontend/src/api/client.ts` automatically attaches the JWT.
-- A `401` response clears saved auth and redirects to `/login` when appropriate.
+- Browser auth uses an `HttpOnly` same-site cookie; the React auth context bootstraps by calling `/api/auth/me`.
+- A `401` response redirects back to `/login` when appropriate.
 - Practice, Buzzer, and Board persist some in-progress state in `localStorage` to support refresh recovery.
 
 ## Common Gotchas

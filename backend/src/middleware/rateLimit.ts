@@ -1,19 +1,20 @@
 import { Request } from "express";
 import rateLimit from "express-rate-limit";
+import { requestIsLocalProxy } from "./auth";
 
-// We sit behind Cloudflare + an nginx reverse proxy, so req.ip would resolve to
-// the proxy. Prefer CF-Connecting-IP (set by Cloudflare), then the first hop of
-// X-Forwarded-For, then req.ip as a last resort. We don't enable `trust proxy`
-// because that would also affect req.protocol / req.hostname, which we don't
-// rely on but easily could in the future — the explicit key extractor is safer.
+// Only trust forwarding headers when the direct peer is a local/private proxy.
+// If the app is ever exposed directly, a client should not be able to spoof
+// CF-Connecting-IP / X-Forwarded-For and evade rate limits.
 function clientIp(req: Request): string {
-  const cf = req.headers["cf-connecting-ip"];
-  if (typeof cf === "string" && cf.length > 0) return cf;
-  const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string" && xff.length > 0) {
-    return xff.split(",")[0]!.trim();
+  if (requestIsLocalProxy(req)) {
+    const cf = req.headers["cf-connecting-ip"];
+    if (typeof cf === "string" && cf.length > 0) return cf;
+    const xff = req.headers["x-forwarded-for"];
+    if (typeof xff === "string" && xff.length > 0) {
+      return xff.split(",")[0]!.trim();
+    }
   }
-  return req.ip ?? "unknown";
+  return req.socket.remoteAddress ?? req.ip ?? "unknown";
 }
 
 export const authLimiter = rateLimit({
