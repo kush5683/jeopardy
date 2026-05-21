@@ -349,12 +349,14 @@ export function MultiplayerBoard() {
     setStartBusy(true);
     setActionError(null);
     try {
-      await api.post(`/multiplayer/rooms/${room.code}/start`);
+      const { data } = await api.post(`/multiplayer/rooms/${room.code}/start`);
+      setRoom(data.room);
     } catch (err: any) {
       const raw = err?.response?.data?.error;
       setActionError(typeof raw === "string" ? raw : "Couldn't start the room.");
     } finally {
       setStartBusy(false);
+      setLeaveBusy(false);
     }
   }
 
@@ -368,6 +370,7 @@ export function MultiplayerBoard() {
     } catch (err: any) {
       const raw = err?.response?.data?.error;
       setActionError(typeof raw === "string" ? raw : "Couldn't leave the room.");
+    } finally {
       setLeaveBusy(false);
     }
   }
