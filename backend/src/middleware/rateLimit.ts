@@ -2,6 +2,8 @@ import { Request } from "express";
 import rateLimit from "express-rate-limit";
 import { requestIsLocalProxy } from "./auth";
 
+const IS_TEST = process.env.NODE_ENV === "test";
+
 // Only trust forwarding headers when the direct peer is a local/private proxy.
 // If the app is ever exposed directly, a client should not be able to spoof
 // CF-Connecting-IP / X-Forwarded-For and evade rate limits.
@@ -19,7 +21,7 @@ function clientIp(req: Request): string {
 
 export const authLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 10,
+  limit: IS_TEST ? 10_000 : 10,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -28,7 +30,7 @@ export const authLimiter = rateLimit({
 
 export const friendRequestLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 10,
+  limit: IS_TEST ? 10_000 : 10,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -37,7 +39,7 @@ export const friendRequestLimiter = rateLimit({
 
 export const submitLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 120, // generous — one clue every ~0.5s — but bounds bot grinding.
+  limit: IS_TEST ? 10_000 : 120, // generous — one clue every ~0.5s — but bounds bot grinding.
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -46,7 +48,7 @@ export const submitLimiter = rateLimit({
 
 export const boardShareLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 30,
+  limit: IS_TEST ? 10_000 : 30,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -55,7 +57,7 @@ export const boardShareLimiter = rateLimit({
 
 export const multiplayerCreateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 10,
+  limit: IS_TEST ? 10_000 : 10,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -64,7 +66,7 @@ export const multiplayerCreateLimiter = rateLimit({
 
 export const multiplayerJoinLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 20,
+  limit: IS_TEST ? 10_000 : 20,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { RetryPanel } from "../components/RetryPanel";
@@ -11,6 +12,21 @@ type Stats = {
   recentBuzzer: { id: string; coryatScore: number; correctCount: number; totalClues: number; createdAt: string }[];
   byRound: Record<string, { total: number; correct: number }>;
   topCategories: { id: number; name: string; total: number; correct: number; accuracy: number }[];
+  daily: {
+    playedCount: number;
+    bestScore: number;
+    averageScore: number;
+    accuracy: number;
+    streak: number;
+    recent: Array<{
+      id: string;
+      date: string;
+      score: number;
+      totalCorrect: number;
+      totalClues: number;
+      completedAt: string;
+    }>;
+  };
 };
 
 export function Dashboard() {
@@ -44,6 +60,54 @@ export function Dashboard() {
         <Stat label="Accuracy" value={`${(stats.accuracy * 100).toFixed(0)}%`} />
         <Stat label="Best Coryat" value={`$${stats.bestCoryat}`} highlight />
       </div>
+
+      <section>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 className="font-category text-2xl text-jeopardy-gold">Daily performance</h2>
+          <Link to="/daily" className="text-sm text-jeopardy-gold underline">
+            Play daily
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Stat label="Played" value={stats.daily.playedCount} />
+          <Stat label="Best score" value={`$${stats.daily.bestScore}`} highlight />
+          <Stat label="Average score" value={`$${Math.round(stats.daily.averageScore)}`} />
+          <Stat label="Daily accuracy" value={`${(stats.daily.accuracy * 100).toFixed(0)}%`} />
+          <Stat label="Streak" value={`${stats.daily.streak} day${stats.daily.streak === 1 ? "" : "s"}`} />
+        </div>
+        {stats.daily.recent.length === 0 ? (
+          <p className="mt-3 text-white/60 text-sm">No completed dailies yet.</p>
+        ) : (
+          <div className="mt-3 bg-white/5 rounded overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-white/10 text-xs uppercase">
+                <tr>
+                  <th className="text-left px-2 sm:px-3 py-2">Date</th>
+                  <th className="text-right px-2 sm:px-3 py-2">Score</th>
+                  <th className="text-right px-2 sm:px-3 py-2">Correct</th>
+                  <th className="text-right px-2 sm:px-3 py-2">Accuracy</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.daily.recent.map((attempt) => (
+                  <tr key={attempt.id} className="border-t border-white/5">
+                    <td className="px-2 sm:px-3 py-2">
+                      <Link to={`/daily/${attempt.date}`} className="text-jeopardy-gold underline">
+                        {new Date(`${attempt.date}T00:00:00Z`).toLocaleDateString()}
+                      </Link>
+                    </td>
+                    <td className="px-2 sm:px-3 py-2 text-right dollar text-base">${attempt.score}</td>
+                    <td className="px-2 sm:px-3 py-2 text-right whitespace-nowrap">{attempt.totalCorrect}/{attempt.totalClues}</td>
+                    <td className="px-2 sm:px-3 py-2 text-right">
+                      {((attempt.totalCorrect / Math.max(1, attempt.totalClues)) * 100).toFixed(0)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section>
         <h2 className="font-category text-2xl text-jeopardy-gold mb-3">By round</h2>

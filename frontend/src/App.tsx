@@ -49,6 +49,7 @@ export default function App() {
           <Route path="/friends" element={<RequireAuth><Friends /></RequireAuth>} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+          <Route path="/daily/:date" element={<Daily />} />
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="*" element={<NotFound />} />
         </Routes>

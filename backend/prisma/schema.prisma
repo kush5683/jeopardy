@@ -154,12 +154,14 @@ model ClueResponse {
   mode            PlayMode
   wager           Int?
   buzzerSessionId String?
+  dailyDate       DateTime? @db.Date
   createdAt       DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   clue Clue @relation(fields: [clueId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, dailyDate])
   @@index([clueId])
   @@index([buzzerSessionId])
 }

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthedRequest, requireAuth } from "../middleware/auth";
+import { todayKey } from "../lib/daily";
 
 export const statsRouter = Router();
 
@@ -10,7 +11,7 @@ statsRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   // Aggregate everything in SQL: per-round counts, per-category counts, overall.
   // Previously this pulled every ClueResponse row + included clue and aggregated
   // in JS — O(N) over the wire for a heavy user.
-  const [overall, byRoundRows, topCatsRows, buzzer] = await Promise.all([
+  const [overall, byRoundRows, topCatsRows, buzzer, dailyAttempts] = await Promise.all([
     prisma.$queryRaw<{ total: bigint; correct: bigint }[]>`
       SELECT COUNT(*)::bigint AS total,
              COUNT(*) FILTER (WHERE correct)::bigint AS correct
@@ -45,6 +46,11 @@ statsRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
       orderBy: { createdAt: "desc" },
       take: 30,
     }),
+    prisma.dailyAttempt.findMany({
+      where: { userId },
+      orderBy: { date: "desc" },
+      take: 365,
+    }),
   ]);
 
   const totalNum = Number(overall[0]?.total ?? 0n);
@@ -68,6 +74,24 @@ statsRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
     };
   });
 
+  const dailyPlayedCount = dailyAttempts.length;
+  const dailyBestScore = dailyAttempts.reduce((m, a) => Math.max(m, a.score), 0);
+  const dailyScoreSum = dailyAttempts.reduce((sum, a) => sum + a.score, 0);
+  const dailyCorrectSum = dailyAttempts.reduce((sum, a) => sum + a.totalCorrect, 0);
+  const dailyClueSum = dailyAttempts.reduce((sum, a) => sum + a.totalClues, 0);
+  const dailyDates = new Set(
+    dailyAttempts.map((a) => a.date.toISOString().slice(0, 10)),
+  );
+  let dailyStreak = 0;
+  let cursor = new Date(`${todayKey()}T00:00:00.000Z`);
+  if (!dailyDates.has(cursor.toISOString().slice(0, 10))) {
+    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+  }
+  while (dailyDates.has(cursor.toISOString().slice(0, 10))) {
+    dailyStreak += 1;
+    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+  }
+
   res.json({
     totalAnswered: totalNum,
     correctCount: correctNum,
@@ -76,5 +100,20 @@ statsRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
     recentBuzzer: buzzer,
     byRound,
     topCategories,
+    daily: {
+      playedCount: dailyPlayedCount,
+      bestScore: dailyBestScore,
+      averageScore: dailyPlayedCount ? dailyScoreSum / dailyPlayedCount : 0,
+      accuracy: dailyClueSum ? dailyCorrectSum / dailyClueSum : 0,
+      streak: dailyStreak,
+      recent: dailyAttempts.slice(0, 12).map((attempt) => ({
+        id: attempt.id,
+        date: attempt.date.toISOString().slice(0, 10),
+        score: attempt.score,
+        totalCorrect: attempt.totalCorrect,
+        totalClues: attempt.totalClues,
+        completedAt: attempt.completedAt.toISOString(),
+      })),
+    },
   });
 });

@@ -9,6 +9,13 @@ import { getCuratedAliases } from "../lib/curatedAliases";
 import { warmWikiCache } from "../lib/warmWikiCache";
 import { boardShareLimiter, submitLimiter } from "../middleware/rateLimit";
 import { judgeWithLLM, prepareHint, isHintInFlight } from "../lib/llmJudge";
+import {
+  dateAtUTC,
+  dateIsInFuture,
+  getDailyClueIds,
+  normalizeDailyDate,
+  todayKey,
+} from "../lib/daily";
 import crypto from "crypto";
 
 export const cluesRouter = Router();
@@ -520,6 +527,7 @@ const submitSchema = z.object({
   mode: z.enum(["PRACTICE", "BUZZER", "DAILY", "REVIEW", "BOARD", "FINAL"]),
   wager: z.number().int().nullable().optional(),
   buzzerSessionId: z.string().min(1).max(64).nullable().optional(),
+  dailyDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 });
 
 // Single-token number-word → digit substitutions. Lets "ten" match "10",
@@ -987,11 +995,25 @@ cluesRouter.post("/submit", submitLimiter, requireAuth, async (req: AuthedReques
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
-  const { clueId, answer, responseTimeMs, mode, wager, buzzerSessionId } = parsed.data;
+  const { clueId, answer, responseTimeMs, mode, wager, buzzerSessionId, dailyDate } = parsed.data;
   const clue = await prisma.clue.findUnique({ where: { id: clueId } });
   if (!clue) {
     res.status(404).json({ error: "clue not found" });
     return;
+  }
+  let dailyDateValue: Date | null = null;
+  if (mode === "DAILY") {
+    const dayKey = normalizeDailyDate(dailyDate) ?? todayKey();
+    if (!dayKey || dateIsInFuture(dayKey)) {
+      res.status(400).json({ error: "invalid daily date" });
+      return;
+    }
+    const dailyClueIds = await getDailyClueIds(dayKey);
+    if (!dailyClueIds.includes(clueId)) {
+      res.status(400).json({ error: "clue is not in this daily challenge" });
+      return;
+    }
+    dailyDateValue = dateAtUTC(dayKey);
   }
   // A wager is legitimate on a Daily Double, in Final Jeopardy mode, or anywhere
   // in BOARD mode (where DDs in mixed games are sprinkled at request time and
@@ -1021,6 +1043,7 @@ cluesRouter.post("/submit", submitLimiter, requireAuth, async (req: AuthedReques
       mode: mode as PlayMode,
       wager: wager ?? null,
       buzzerSessionId: sessionId,
+      dailyDate: dailyDateValue,
     },
   });
   if (!correct) {
