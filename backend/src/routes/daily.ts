@@ -1,66 +1,31 @@
 import { Router } from "express";
-import crypto from "crypto";
 import { prisma } from "../lib/prisma";
 import { AuthedRequest, requireAuth } from "../middleware/auth";
 import { warmWikiCache } from "../lib/warmWikiCache";
+import {
+  dateAtUTC,
+  dateIsInFuture,
+  getDailyClueIds,
+  nextDateAtUTC,
+  normalizeDailyDate,
+  todayKey,
+} from "../lib/daily";
 
 export const dailyRouter = Router();
 
-const DAILY_CLUE_COUNT = 30;
-
-function todayKey(): string {
-  const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+function requestedDayKey(value: unknown): string | null {
+  if (value != null && normalizeDailyDate(value) === null) return null;
+  const dayKey = normalizeDailyDate(value) ?? todayKey();
+  if (dateIsInFuture(dayKey)) return null;
+  return dayKey;
 }
 
-function dateAtUTC(key: string): Date {
-  return new Date(`${key}T00:00:00.000Z`);
-}
-
-// Mix in JWT_SECRET as a server-side salt so tomorrow's clue IDs can't be
-// precomputed from the (public) sha256(dayKey:index) hash alone. The set is
-// still deterministic per-day on the server, just not publicly predictable.
-const DAILY_SALT = process.env.JWT_SECRET ?? "";
-
-// Hash dayKey + index → number in [1, max]
-function pickId(dayKey: string, index: number, maxId: number): number {
-  const hash = crypto
-    .createHmac("sha256", DAILY_SALT)
-    .update(`${dayKey}:${index}`)
-    .digest("hex");
-  const n = BigInt(`0x${hash.slice(0, 12)}`);
-  return Number(n % BigInt(maxId)) + 1;
-}
-
-async function getDailyClueIds(dayKey: string): Promise<number[]> {
-  const result = await prisma.clue.aggregate({ _max: { id: true } });
-  const maxId = result._max.id ?? 0;
-  if (maxId === 0) return [];
-
-  // Pick ~2x the count we need to allow for collisions / non-existent ids,
-  // then dedupe and trim.
-  const candidates: number[] = [];
-  for (let i = 0; i < DAILY_CLUE_COUNT * 3; i++) {
-    candidates.push(pickId(dayKey, i, maxId));
+dailyRouter.get("/today", async (req, res) => {
+  const dayKey = requestedDayKey(req.query.date);
+  if (!dayKey) {
+    res.status(400).json({ error: "invalid daily date" });
+    return;
   }
-  const found = await prisma.clue.findMany({
-    where: { id: { in: candidates } },
-    include: { category: true },
-  });
-  // Map by id to preserve our deterministic ordering
-  const byId = new Map(found.map((c) => [c.id, c]));
-  const ordered: number[] = [];
-  for (const id of candidates) {
-    if (byId.has(id) && !ordered.includes(id)) {
-      ordered.push(id);
-      if (ordered.length === DAILY_CLUE_COUNT) break;
-    }
-  }
-  return ordered;
-}
-
-dailyRouter.get("/today", async (_req, res) => {
-  const dayKey = todayKey();
   const ids = await getDailyClueIds(dayKey);
   const clues = await prisma.clue.findMany({
     where: { id: { in: ids } },
@@ -90,10 +55,15 @@ dailyRouter.get("/today", async (_req, res) => {
 });
 
 // Server-authoritative: recompute from ClueResponse rows so the client can't
-// post a fake score. The body is intentionally ignored.
+// post a fake score. The body only chooses the daily date.
 dailyRouter.post("/finish", requireAuth, async (req: AuthedRequest, res) => {
-  const dayKey = todayKey();
+  const dayKey = requestedDayKey(req.body?.date);
+  if (!dayKey) {
+    res.status(400).json({ error: "invalid daily date" });
+    return;
+  }
   const date = dateAtUTC(dayKey);
+  const nextDate = nextDateAtUTC(dayKey);
   const clueIds = await getDailyClueIds(dayKey);
   if (clueIds.length === 0) {
     res.status(409).json({ error: "no daily clues for today" });
@@ -104,7 +74,10 @@ dailyRouter.post("/finish", requireAuth, async (req: AuthedRequest, res) => {
       userId: req.userId!,
       mode: "DAILY",
       clueId: { in: clueIds },
-      createdAt: { gte: date },
+      OR: [
+        { dailyDate: date },
+        { dailyDate: null, createdAt: { gte: date, lt: nextDate } },
+      ],
     },
     include: { clue: { select: { value: true } } },
   });
@@ -138,8 +111,8 @@ dailyRouter.post("/finish", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 dailyRouter.get("/leaderboard", async (req, res) => {
-  const dateStr = (req.query.date as string) || todayKey();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+  const dateStr = requestedDayKey(req.query.date);
+  if (!dateStr) {
     res.status(400).json({ error: "invalid date" });
     return;
   }
@@ -164,8 +137,13 @@ dailyRouter.get("/leaderboard", async (req, res) => {
 });
 
 dailyRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
-  const dayKey = todayKey();
+  const dayKey = requestedDayKey(req.query.date);
+  if (!dayKey) {
+    res.status(400).json({ error: "invalid daily date" });
+    return;
+  }
   const date = dateAtUTC(dayKey);
+  const nextDate = nextDateAtUTC(dayKey);
   const attempt = await prisma.dailyAttempt.findUnique({
     where: { userId_date: { userId: req.userId!, date } },
   });
@@ -186,7 +164,10 @@ dailyRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
       userId: req.userId!,
       mode: "DAILY",
       clueId: { in: clueIds },
-      createdAt: { gte: date },
+      OR: [
+        { dailyDate: date },
+        { dailyDate: null, createdAt: { gte: date, lt: nextDate } },
+      ],
     },
     include: { clue: { select: { value: true } } },
   });

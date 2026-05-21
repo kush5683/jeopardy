@@ -2,7 +2,7 @@
 
 Train on real Jeopardy-style clues, drill buzzer timing, run full boards, review missed clues, and study with flashcards.
 
-Production: [jeopardy.kushshah.net](https://jeopardy.kushshah.net)
+Production deployment details are intentionally kept out of source control.
 
 ## What This Repo Contains
 
@@ -31,7 +31,7 @@ Production: [jeopardy.kushshah.net](https://jeopardy.kushshah.net)
 | Backend | Node 20, Express, TypeScript |
 | Database | PostgreSQL 16 |
 | ORM | Prisma |
-| Auth | JWT, optional Google Sign-In |
+| Auth | HttpOnly JWT session cookie, optional Google Sign-In |
 | LLM | Local Ollama instance for answer judging, hinting, and wiki disambiguation |
 | Deploy | Docker Compose |
 
@@ -90,6 +90,7 @@ Notes:
 
 - The backend does not load `.env` by itself, so host-run development requires exporting env vars in your shell first.
 - `frontend/vite.config.ts` proxies `/api` to `http://localhost:3000`.
+- Browser auth now lives in an `HttpOnly` same-site cookie rather than `localStorage`.
 - If Ollama is not running, deterministic judging still works; LLM-backed answer acceptance and hint generation degrade conservatively.
 
 ### Production-Like Local Run

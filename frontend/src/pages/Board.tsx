@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { useTextToSpeech } from "../hooks/useTextToSpeech";
@@ -90,9 +91,18 @@ type SavedBoardGame = {
   played: number[];
   score: number;
   finalDone: boolean;
+  shareCode?: string | null;
 };
 
 const BOARD_SAVE_KEY = "board-game-v1";
+
+function normalizeShareCode(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function formatShareCode(raw: string): string {
+  return normalizeShareCode(raw).replace(/(.{4})(?=.)/g, "$1-");
+}
 
 function loadSavedBoard(): SavedBoardGame | null {
   try {
@@ -110,6 +120,10 @@ function loadSavedBoard(): SavedBoardGame | null {
         played: parsed.played,
         score: parsed.score,
         finalDone: Boolean(parsed.finalDone),
+        shareCode:
+          typeof parsed?.shareCode === "string"
+            ? normalizeShareCode(parsed.shareCode)
+            : null,
       };
     }
   } catch {
@@ -161,6 +175,11 @@ export function Board() {
   const [submitting, setSubmitting] = useState(false);
   const [passing, setPassing] = useState(false);
   const [wagerError, setWagerError] = useState<string | null>(null);
+  const [shareCodeInput, setShareCodeInput] = useState("");
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
   const buzzedAt = useRef<number>(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const passingRef = useRef(false);
@@ -173,6 +192,7 @@ export function Board() {
   const scoreRef = useRef<number>(score);
   scoreRef.current = score;
   const [pendingResume, setPendingResume] = useState<SavedBoardGame | null>(null);
+  const formattedShareCode = shareCode ? formatShareCode(shareCode) : null;
 
   useEffect(() => {
     setPendingResume(loadSavedBoard());
@@ -196,6 +216,7 @@ export function Board() {
     nextScore?: number;
     nextEpisode?: Episode | null;
     finalDone?: boolean;
+    nextShareCode?: string | null;
   }) {
     const ep = opts.nextEpisode ?? episode;
     if (!ep) return;
@@ -204,6 +225,7 @@ export function Board() {
       played: Array.from(opts.nextPlayed ?? played),
       score: opts.nextScore ?? score,
       finalDone: opts.finalDone ?? false,
+      shareCode: opts.nextShareCode ?? shareCode,
     });
   }
 
@@ -216,6 +238,10 @@ export function Board() {
     setPhase({ kind: "loading" });
     clearBoardSave();
     setPendingResume(null);
+    setShareCode(null);
+    setShareCodeInput("");
+    setShareError(null);
+    setShareStatus(null);
     const endpoint = mode === "episode" ? "/clues/episode" : "/clues/mixed-board";
     const { data } = await api.get(endpoint);
     const ep = data as Episode;
@@ -223,7 +249,13 @@ export function Board() {
     setPlayed(new Set());
     setScore(0);
     setPhase({ kind: "board", round: "JEOPARDY" });
-    saveBoardGame({ episode: ep, played: [], score: 0, finalDone: false });
+    saveBoardGame({
+      episode: ep,
+      played: [],
+      score: 0,
+      finalDone: false,
+      shareCode: null,
+    });
   }
 
   function resumeBoardGame() {
@@ -233,6 +265,9 @@ export function Board() {
     setEpisode(ep);
     setPlayed(playedSet);
     setScore(pendingResume.score);
+    setShareCode(pendingResume.shareCode ?? null);
+    setShareError(null);
+    setShareStatus(null);
     setPendingResume(null);
     // Pick the right phase based on what's still unfinished.
     if (roundHasUnplayed(ep.jeopardy, playedSet)) {
@@ -252,6 +287,84 @@ export function Board() {
   function discardBoardSave() {
     clearBoardSave();
     setPendingResume(null);
+    setShareCode(null);
+    setShareError(null);
+    setShareStatus(null);
+  }
+
+  async function copyShareCode(raw: string) {
+    const formatted = formatShareCode(raw);
+    try {
+      await navigator.clipboard.writeText(formatted);
+      setShareStatus(`Copied share code ${formatted}.`);
+      setShareError(null);
+    } catch {
+      setShareStatus(`Share code: ${formatted}`);
+      setShareError(null);
+    }
+  }
+
+  async function createBoardShare() {
+    if (!episode || shareBusy) return;
+    if (shareCode) {
+      await copyShareCode(shareCode);
+      return;
+    }
+    setShareBusy(true);
+    setShareError(null);
+    setShareStatus(null);
+    try {
+      const { data } = await api.post("/clues/board-share", { episode });
+      const code = normalizeShareCode(data.code);
+      setShareCode(code);
+      persist({ nextEpisode: episode, nextShareCode: code });
+      await copyShareCode(code);
+    } catch (e: any) {
+      const raw = e?.response?.data?.error;
+      setShareError(
+        typeof raw === "string" ? raw : "Couldn't create a share code.",
+      );
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  async function loadSharedBoard(e: FormEvent) {
+    e.preventDefault();
+    const code = normalizeShareCode(shareCodeInput);
+    if (!code || shareBusy) return;
+    setShareBusy(true);
+    setShareError(null);
+    setShareStatus(null);
+    try {
+      tts.cancel();
+      clearTimers();
+      const { data } = await api.get(`/clues/board-share/${code}`);
+      const ep = data.episode as Episode;
+      clearBoardSave();
+      setPendingResume(null);
+      setEpisode(ep);
+      setPlayed(new Set());
+      setScore(0);
+      setShareCode(code);
+      setShareCodeInput("");
+      setPhase({ kind: "board", round: "JEOPARDY" });
+      setShareStatus(`Loaded shared board ${formatShareCode(code)}.`);
+      saveBoardGame({
+        episode: ep,
+        played: [],
+        score: 0,
+        finalDone: false,
+        shareCode: code,
+      });
+    } catch (e: any) {
+      const raw = e?.response?.data?.error;
+      setShareError(
+        typeof raw === "string" ? raw : "Couldn't load that share code.",
+      );
+    } finally {
+      setShareBusy(false);
+    }
   }
 
   function currentBoard(): RoundBoard | null {
@@ -517,6 +630,10 @@ export function Board() {
     setScore(0);
     setAnswer("");
     setWagerInput("");
+    setShareCode(null);
+    setShareCodeInput("");
+    setShareError(null);
+    setShareStatus(null);
     setPhase({ kind: "idle" });
   }
 
@@ -603,7 +720,7 @@ export function Board() {
             </div>
           </div>
         )}
-        <div className="grid md:grid-cols-2 gap-4 mt-6">
+        <div className="grid md:grid-cols-3 gap-4 mt-6">
           <button
             onClick={() => startGame("episode")}
             className="clue-tile p-6 rounded text-left hover:scale-[1.02] transition"
@@ -622,6 +739,51 @@ export function Board() {
               6 random categories per round drawn from across all episodes, plus a random Final. Daily Doubles placed randomly.
             </p>
           </button>
+          <Link
+            to="/board/multiplayer"
+            className="clue-tile p-6 rounded text-left hover:scale-[1.02] transition block"
+          >
+            <h2 className="font-category text-2xl text-jeopardy-gold">Start multiplayer game</h2>
+            <p className="text-white/85 mt-2 text-sm">
+              Host a private live room for up to 3 total players and share a room code for real-time play.
+            </p>
+          </Link>
+        </div>
+        <div className="max-w-md mx-auto bg-white/5 rounded p-4 space-y-3 text-left">
+          <h2 className="font-category text-2xl text-jeopardy-gold text-center">
+            Have an async share code?
+          </h2>
+          <p className="text-sm text-white/70 text-center">
+            Share codes load the same board for asynchronous play. Use{" "}
+            <span className="font-semibold">Start multiplayer game</span> above for live rooms.
+          </p>
+          <form onSubmit={loadSharedBoard} className="flex gap-2">
+            <input
+              aria-label="Board share code"
+              autoComplete="off"
+              value={shareCodeInput}
+              onChange={(e) => setShareCodeInput(e.target.value.toUpperCase())}
+              placeholder="ABCD-EFGH"
+              className="flex-1 px-3 py-3 rounded bg-white/10 uppercase tracking-[0.2em] text-center"
+            />
+            <button
+              type="submit"
+              disabled={shareBusy || normalizeShareCode(shareCodeInput).length !== 8}
+              className="px-4 py-2 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60 disabled:cursor-wait"
+            >
+              {shareBusy ? "…" : "Load"}
+            </button>
+          </form>
+          {shareError && (
+            <p className="text-sm text-red-300 text-center" role="alert">
+              {shareError}
+            </p>
+          )}
+          {shareStatus && (
+            <p className="text-sm text-green-300 text-center" role="status">
+              {shareStatus}
+            </p>
+          )}
         </div>
         {tts.supported && (
           <div className="flex justify-center pt-2">
@@ -661,6 +823,30 @@ export function Board() {
         <p className="text-3xl">
           Final score: <span className="dollar">${phase.total.toLocaleString()}</span>
         </p>
+        {episode && (
+          <div className="space-y-2">
+            <button
+              onClick={() => void createBoardShare()}
+              disabled={shareBusy}
+              className="px-6 py-2 border border-white/30 hover:bg-white/10 rounded text-sm disabled:opacity-60 disabled:cursor-wait"
+            >
+              {shareBusy ? "Sharing…" : formattedShareCode ? "Copy share code" : "Share this board"}
+            </button>
+            {formattedShareCode && (
+              <p className="text-sm text-white/70">
+                <span className="font-mono tracking-[0.2em]">{formattedShareCode}</span>
+              </p>
+            )}
+            {(shareError || shareStatus) && (
+              <p
+                className={`text-sm ${shareError ? "text-red-300" : "text-green-300"}`}
+                role={shareError ? "alert" : "status"}
+              >
+                {shareError ?? shareStatus}
+              </p>
+            )}
+          </div>
+        )}
         <button onClick={newGame} className="px-8 py-3 bg-jeopardy-gold text-black font-semibold rounded">
           New episode
         </button>
@@ -682,8 +868,14 @@ export function Board() {
             <p className="text-xs text-white/40">
               {episode.date ? `Episode aired ${episode.date}` : "Mixed categories"}
             </p>
+            {formattedShareCode && (
+              <p className="text-xs text-white/60 mt-1">
+                Share code:{" "}
+                <span className="font-mono tracking-[0.2em]">{formattedShareCode}</span>
+              </p>
+            )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap justify-end">
             {tts.supported && (
               <button
                 onClick={() => {
@@ -700,9 +892,25 @@ export function Board() {
                 🔊 {ttsMode ? "TTS on" : "TTS off"}
               </button>
             )}
+            <button
+              onClick={() => void createBoardShare()}
+              disabled={shareBusy}
+              className="px-3 py-2 rounded border border-white/30 hover:bg-white/10 text-xs min-h-[36px] disabled:opacity-60 disabled:cursor-wait"
+              title={formattedShareCode ? "Copy the current board share code" : "Create a share code for this board"}
+            >
+              {shareBusy ? "Sharing…" : formattedShareCode ? "Copy code" : "Share board"}
+            </button>
             <span>Score: <span className="dollar text-2xl">${score.toLocaleString()}</span></span>
           </div>
         </div>
+        {(shareError || shareStatus) && (
+          <p
+            className={`text-sm ${shareError ? "text-red-300" : "text-green-300"}`}
+            role={shareError ? "alert" : "status"}
+          >
+            {shareError ?? shareStatus}
+          </p>
+        )}
         <div className="grid grid-cols-6 gap-1 max-w-7xl mx-auto">
           {board.categories.map((cat, ci) => (
             <div

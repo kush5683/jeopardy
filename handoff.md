@@ -12,10 +12,10 @@ A web-based Jeopardy! trainer. Users play through real Jeopardy clues across
 several modes, get judged on their answers, and build a spaced-repetition
 review queue from misses.
 
-- **Owner:** Kush Shah (kush@kushshah.net, also reachable as
-  shah.kush6@northeastern.edu).
-- **Production hostname:** `jeopardy.kushshah.net` (the Wikipedia fetch UA in
-  `backend/src/lib/wikipedia.ts` confirms this).
+- **Owner:** repository maintainer contact is intentionally kept out of source
+  control; configure operational contacts through deployment env vars instead.
+- **Production hostname:** deployment-specific and intentionally not hardcoded
+  into the repo.
 - **Status:** Active development. The codebase is real-use, not a toy.
 
 ### Play modes (`frontend/src/pages/`)
@@ -48,7 +48,7 @@ All modes share `/api/clues/submit` (logged-in) or `/api/clues/check`
 
 ### Repo layout
 ```
-/Users/kushlab/jeopardy/
+repo-root/
 ├── backend/
 │   ├── src/
 │   │   ├── app.ts                   # Express app factory (used by tests too)
@@ -95,8 +95,8 @@ All modes share `/api/clues/submit` (logged-in) or `/api/clues/check`
 
 ## 3. User profile and working style
 
-These are persistent preferences. Memory files at
-`~/.claude/projects/-Users-kushlab-jeopardy/memory/` also encode some of this.
+These are persistent preferences. Additional assistant memory may exist
+outside the repo, but repo-local docs should not depend on user-specific paths.
 
 ### Goals
 - **Make judging feel right.** The biggest active workstream is "the matcher
@@ -167,9 +167,8 @@ docker compose exec -T db psql -U jeopardy -d jeopardy
 
 ### Ollama
 - Brew-installed (`brew services list` shows `ollama` running).
-- Configured to only run one inference at a time via the LaunchAgent at
-  `~/Library/LaunchAgents/local.ollama-env.plist` (which sets
-  `OLLAMA_NUM_PARALLEL=1` at login before Ollama starts).
+- Configured to only run one inference at a time via a local LaunchAgent
+  outside this repo (which sets `OLLAMA_NUM_PARALLEL=1` before Ollama starts).
 - Pulling new models: `ollama pull <name>`.
 - `ollama list` to see installed.
 
@@ -292,10 +291,9 @@ called when a batch of clues is loaded).
 ## 7. Common gotchas
 
 - **Ollama on macOS.** Brew regenerates the launchd plist on
-  `brew services restart`, wiping any manual edits. To persist env vars
-  across restarts use the separate LaunchAgent at
-  `~/Library/LaunchAgents/local.ollama-env.plist`, which runs
-  `launchctl setenv` at login before Ollama starts.
+  `brew services restart`, wiping any manual edits. Persist env vars via a
+  separate user LaunchAgent outside this repo that runs `launchctl setenv`
+  before Ollama starts.
 - **Docker can't see host services.** Ollama runs on the host;
   inside containers `localhost` is the container. Use
   `host.docker.internal:11434`. The compose file maps this with

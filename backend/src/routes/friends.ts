@@ -14,8 +14,8 @@ friendsRouter.get("/", requireAuth, async (req: AuthedRequest, res) => {
       OR: [{ requesterId: req.userId! }, { addresseeId: req.userId! }],
     },
     include: {
-      requester: { select: { id: true, displayName: true, email: true } },
-      addressee: { select: { id: true, displayName: true, email: true } },
+      requester: { select: { id: true, displayName: true } },
+      addressee: { select: { id: true, displayName: true } },
     },
   });
   const friends = friendships.map((f) => {
@@ -29,14 +29,14 @@ friendsRouter.get("/pending", requireAuth, async (req: AuthedRequest, res) => {
   const incoming = await prisma.friendship.findMany({
     where: { addresseeId: req.userId!, status: FriendshipStatus.PENDING },
     include: {
-      requester: { select: { id: true, displayName: true, email: true } },
+      requester: { select: { id: true, displayName: true } },
     },
     orderBy: { createdAt: "desc" },
   });
   const outgoing = await prisma.friendship.findMany({
     where: { requesterId: req.userId!, status: FriendshipStatus.PENDING },
     include: {
-      addressee: { select: { id: true, displayName: true, email: true } },
+      addressee: { select: { id: true, displayName: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -71,8 +71,9 @@ friendsRouter.post(
     // email-enumeration oracle. The legitimate-user UX is unchanged because the
     // recipient sees the incoming request in their pending list either way.
     const ok = { ok: true };
-    const target = await prisma.user.findUnique({
-      where: { email: parsed.data.email },
+    const email = parsed.data.email.trim().toLowerCase();
+    const target = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
     });
     if (!target || target.id === req.userId) {
       res.json(ok);

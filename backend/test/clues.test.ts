@@ -1,6 +1,53 @@
 import { describe, it, expect } from "vitest";
 import { newAgent, registerUser, seedClue, authHeader } from "./helpers";
 
+function buildSharedEpisode() {
+  let nextId = 1;
+  function makeRound(
+    label: string,
+    round: "JEOPARDY" | "DOUBLE_JEOPARDY",
+    values: number[],
+  ) {
+    return {
+      values,
+      categories: Array.from({ length: 6 }, (_, catIdx) => ({
+        name: `${label} Category ${catIdx + 1}`,
+        cells: values.map((value, valueIdx) => ({
+          id: nextId++,
+          question: `${label} clue ${catIdx + 1}-${valueIdx + 1}`,
+          value,
+          round,
+          category: `${label} Category ${catIdx + 1}`,
+          dailyDouble:
+            (round === "JEOPARDY" && catIdx === 1 && valueIdx === 3) ||
+            (round === "DOUBLE_JEOPARDY" &&
+              ((catIdx === 2 && valueIdx === 1) ||
+                (catIdx === 4 && valueIdx === 4))),
+        })),
+      })),
+    };
+  }
+
+  return {
+    jeopardy: makeRound("Jeopardy", "JEOPARDY", [200, 400, 600, 800, 1000]),
+    doubleJeopardy: makeRound("Double", "DOUBLE_JEOPARDY", [
+      400,
+      800,
+      1200,
+      1600,
+      2000,
+    ]),
+    finalJeopardy: {
+      id: nextId++,
+      question: "Final board share clue",
+      value: 0,
+      round: "FINAL_JEOPARDY" as const,
+      category: "Final Category",
+      dailyDouble: false,
+    },
+  };
+}
+
 describe("clues/submit + mark-correct/incorrect", () => {
   it("scores a correct answer with positive valueDelta", async () => {
     const agent = newAgent();
@@ -138,5 +185,39 @@ describe("clues/submit + mark-correct/incorrect", () => {
       .post("/api/clues/submit")
       .send({ clueId, answer: "Iowa", responseTimeMs: 100, mode: "PRACTICE" })
       .expect(401);
+  });
+});
+
+describe("board share codes", () => {
+  it("creates and resolves a shared board", async () => {
+    const agent = newAgent();
+    const { token } = await registerUser(agent);
+    const episode = buildSharedEpisode();
+
+    const created = await agent
+      .post("/api/clues/board-share")
+      .set(authHeader(token))
+      .send({ episode })
+      .expect(200);
+
+    expect(created.body.code).toMatch(/^[A-Z2-9]{8}$/);
+
+    const resolved = await agent
+      .get(`/api/clues/board-share/${created.body.code}`)
+      .expect(200);
+    expect(resolved.body.episode).toEqual(episode);
+  });
+
+  it("requires auth to create a shared board", async () => {
+    const agent = newAgent();
+    await agent
+      .post("/api/clues/board-share")
+      .send({ episode: buildSharedEpisode() })
+      .expect(401);
+  });
+
+  it("404s on an unknown share code", async () => {
+    const agent = newAgent();
+    await agent.get("/api/clues/board-share/ABCD-EFGH").expect(404);
   });
 });

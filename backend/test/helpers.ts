@@ -2,16 +2,17 @@ import request, { SuperTest, Test } from "supertest";
 import { Round } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 import { createApp } from "../src/app";
+import { signToken } from "../src/middleware/auth";
 
 export function newAgent() {
-  return request(createApp());
+  return request.agent(createApp());
 }
 
 let userCount = 0;
 export async function registerUser(
   agent: SuperTest<Test>,
   overrides: { email?: string; password?: string; displayName?: string } = {},
-): Promise<{ token: string; userId: string; email: string }> {
+): Promise<{ token: string; userId: string; email: string; cookies: string[] }> {
   userCount += 1;
   const email = overrides.email ?? `user${userCount}-${Date.now()}@test.local`;
   const password = overrides.password ?? "password1";
@@ -20,7 +21,15 @@ export async function registerUser(
     .post("/api/auth/register")
     .send({ email, password, displayName })
     .expect(200);
-  return { token: res.body.token, userId: res.body.user.id, email };
+  const cookies = Array.isArray(res.headers["set-cookie"])
+    ? res.headers["set-cookie"]
+    : [];
+  return {
+    token: signToken(res.body.user.id),
+    userId: res.body.user.id,
+    email,
+    cookies,
+  };
 }
 
 export async function seedClue(opts: {

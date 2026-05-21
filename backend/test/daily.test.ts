@@ -76,4 +76,49 @@ describe("daily/finish server-side recompute", () => {
     expect(finish.body.attempt.score).toBe(0);
     expect(finish.body.attempt.totalCorrect).toBe(0);
   });
+
+  it("tracks progress and finish by requested daily date", async () => {
+    const agent = newAgent();
+    const { token } = await registerUser(agent);
+    for (let i = 0; i < 60; i++) {
+      await seedClue({ answer: `Past-${i}`, value: 200 });
+    }
+    const date = "2024-01-01";
+    const daily = await agent
+      .get(`/api/daily/today?date=${date}`)
+      .expect(200);
+    const first = daily.body.clues[0] as { id: number; value: number };
+
+    const { prisma } = await import("../src/lib/prisma");
+    const clue = await prisma.clue.findUnique({ where: { id: first.id } });
+    expect(clue).toBeTruthy();
+
+    await agent
+      .post("/api/clues/submit")
+      .set(authHeader(token))
+      .send({
+        clueId: first.id,
+        answer: clue!.answer,
+        responseTimeMs: 1000,
+        mode: "DAILY",
+        dailyDate: date,
+      })
+      .expect(200);
+
+    const progress = await agent
+      .get(`/api/daily/me?date=${date}`)
+      .set(authHeader(token))
+      .expect(200);
+    expect(progress.body.progress.idx).toBe(1);
+    expect(progress.body.progress.score).toBe(first.value);
+
+    const finished = await agent
+      .post("/api/daily/finish")
+      .set(authHeader(token))
+      .send({ date })
+      .expect(200);
+    expect(finished.body.attempt.score).toBe(first.value);
+    expect(finished.body.attempt.totalCorrect).toBe(1);
+    expect(finished.body.attempt.date).toContain(date);
+  });
 });

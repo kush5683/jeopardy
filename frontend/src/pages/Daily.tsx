@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { WikiBlurb } from "../components/WikiBlurb";
@@ -53,13 +53,6 @@ function loadGuestProgress(date: string): GuestProgress | null {
 function saveGuestProgress(date: string, progress: GuestProgress): void {
   if (!date) return;
   try {
-    // Drop yesterday's keys so they don't accumulate.
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(GUEST_KEY_PREFIX) && key !== GUEST_KEY_PREFIX + date) {
-        localStorage.removeItem(key);
-      }
-    }
     localStorage.setItem(GUEST_KEY_PREFIX + date, JSON.stringify(progress));
   } catch {
     // Storage may be unavailable (private mode, disabled) — fall back silently;
@@ -81,9 +74,27 @@ function formatCountdown(ms: number): string {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
+function utcTodayKey(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function validDateKey(value: string | undefined): string {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function addDays(date: string, days: number): string {
+  const time = Date.parse(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(time)) return date;
+  return new Date(time + days * DAY_MS).toISOString().slice(0, 10);
+}
+
 export function Daily() {
   useDocumentTitle("Daily");
   const { user } = useAuth();
+  const nav = useNavigate();
+  const { date: dateParam } = useParams();
+  const requestedDate = validDateKey(dateParam);
   const [date, setDate] = useState<string>("");
   const [clues, setClues] = useState<Clue[]>([]);
   const [idx, setIdx] = useState(0);
@@ -106,10 +117,22 @@ export function Daily() {
 
   useEffect(() => {
     let cancelled = false;
+    setDate("");
+    setClues([]);
+    setIdx(0);
+    setAnswer("");
+    setResult(null);
+    setScore(0);
+    setCorrectCount(0);
+    setDone(false);
+    setAlreadyPlayed(null);
+    setBoard([]);
+    setLoadError(false);
     (async () => {
       let todayRes;
+      const query = requestedDate ? `?date=${encodeURIComponent(requestedDate)}` : "";
       try {
-        todayRes = await api.get("/daily/today");
+        todayRes = await api.get(`/daily/today${query}`);
       } catch {
         if (!cancelled) setLoadError(true);
         return;
@@ -122,11 +145,11 @@ export function Daily() {
       setClues(dayClues);
       setShownAt(Date.now());
 
-      const lb = await api.get("/daily/leaderboard");
+      const lb = await api.get(`/daily/leaderboard?date=${encodeURIComponent(dayDate)}`);
       if (!cancelled) setBoard(lb.data.rows);
 
       if (user) {
-        const meRes = await api.get("/daily/me");
+        const meRes = await api.get(`/daily/me?date=${encodeURIComponent(dayDate)}`);
         if (cancelled) return;
         if (meRes.data.attempt) {
           setAlreadyPlayed(meRes.data.attempt);
@@ -140,13 +163,13 @@ export function Daily() {
           if (p.idx >= dayClues.length) {
             // All clues answered but /finish wasn't called (closed tab after
             // last submit). Finalize now.
-            const { data } = await api.post("/daily/finish", {});
+            const { data } = await api.post("/daily/finish", { date: dayDate });
             if (!cancelled && data.attempt) {
               setScore(data.attempt.score);
               setCorrectCount(data.attempt.totalCorrect);
               setAlreadyPlayed(data.attempt);
             }
-            const lb2 = await api.get("/daily/leaderboard");
+            const lb2 = await api.get(`/daily/leaderboard?date=${encodeURIComponent(dayDate)}`);
             if (!cancelled) {
               setBoard(lb2.data.rows);
               setDone(true);
@@ -170,8 +193,7 @@ export function Daily() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- retryKey is the explicit trigger
-  }, [user, retryKey]);
+  }, [requestedDate, user, retryKey]);
 
   // Move focus to the Next button when the result appears. Enter on a focused
   // button activates it naturally — more reliable than a window keydown listener,
@@ -204,6 +226,7 @@ export function Daily() {
           answer,
           responseTimeMs,
           mode: "DAILY",
+          dailyDate: date,
         });
         setResult({ correct: data.correct, canonical: data.canonicalAnswer, typed: answer, llmVerdict: data.llmVerdict ?? null });
         setScore((s) => s + data.valueDelta);
@@ -238,13 +261,14 @@ export function Daily() {
     setAnswer("");
     if (idx + 1 >= clues.length) {
       if (user) {
-        const { data } = await api.post("/daily/finish", {});
+        const { data } = await api.post("/daily/finish", { date });
         // Server-authoritative score — sync local display to what was recorded.
         if (data.attempt) {
           setScore(data.attempt.score);
           setCorrectCount(data.attempt.totalCorrect);
+          setAlreadyPlayed(data.attempt);
         }
-        const lb = await api.get("/daily/leaderboard");
+        const lb = await api.get(`/daily/leaderboard?date=${encodeURIComponent(date)}`);
         setBoard(lb.data.rows);
       }
       // Guest progress already saved in onSubmit with idx = clues.length, so
@@ -257,11 +281,13 @@ export function Daily() {
   }
 
   if (done) {
+    const isToday = date === utcTodayKey();
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <h1 className="font-category text-3xl sm:text-4xl leading-tight text-jeopardy-gold break-words">
           Daily Challenge — {date}
         </h1>
+        <DailyDateNav date={date} onJump={(nextDate) => nav(nextDate === utcTodayKey() ? "/daily" : `/daily/${nextDate}`)} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
           <Stat label="Score" value={`$${score}`} highlight />
           <Stat label="Correct" value={`${correctCount}/${clues.length}`} />
@@ -270,8 +296,10 @@ export function Daily() {
         {user ? (
           <p className="text-white/60 text-sm text-center">
             {alreadyPlayed
-              ? "You've already played today's challenge. Come back tomorrow."
-              : "Result submitted. Come back tomorrow for a new set."}
+              ? "You've already played this challenge."
+              : isToday
+                ? "Result submitted. Come back tomorrow for a new set."
+                : "Result submitted."}
           </p>
         ) : (
           <div className="bg-jeopardy-gold/10 border border-jeopardy-gold/40 rounded p-4 text-center">
@@ -288,8 +316,10 @@ export function Daily() {
             </p>
           </div>
         )}
-        <NextSetCountdown date={date} />
-        <h2 className="font-category text-2xl text-jeopardy-gold">Today's Leaderboard</h2>
+        {isToday && <NextSetCountdown date={date} />}
+        <h2 className="font-category text-2xl text-jeopardy-gold">
+          {isToday ? "Today's Leaderboard" : "Leaderboard"}
+        </h2>
         <Leaderboard rows={board} userId={user?.id ?? null} />
       </div>
     );
@@ -308,6 +338,7 @@ export function Daily() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      <DailyDateNav date={date} onJump={(nextDate) => nav(nextDate === utcTodayKey() ? "/daily" : `/daily/${nextDate}`)} />
       <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span className="min-w-0 break-words">{date} — Clue {idx + 1} / {clues.length}</span>
         <span>Score: <span className="dollar text-2xl">${score}</span></span>
@@ -366,6 +397,49 @@ export function Daily() {
           <Hint clueId={clue.id} />
         </div>
       )}
+    </div>
+  );
+}
+
+function DailyDateNav({ date, onJump }: { date: string; onJump: (date: string) => void }) {
+  const today = utcTodayKey();
+  const isToday = date === today;
+  if (!date) return null;
+
+  return (
+    <div className="flex flex-col gap-2 rounded border border-white/10 bg-white/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2">
+        <Link
+          to={`/daily/${addDays(date, -1)}`}
+          className="rounded border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
+        >
+          Previous
+        </Link>
+        <Link
+          to={isToday ? "/daily" : `/daily/${addDays(date, 1)}`}
+          aria-disabled={isToday}
+          className={`rounded border border-white/20 px-3 py-2 text-sm ${
+            isToday ? "pointer-events-none opacity-40" : "hover:bg-white/10"
+          }`}
+        >
+          Next
+        </Link>
+        {!isToday && (
+          <Link to="/daily" className="rounded border border-jeopardy-gold/40 px-3 py-2 text-sm text-jeopardy-gold hover:bg-jeopardy-gold/10">
+            Today
+          </Link>
+        )}
+      </div>
+      <input
+        type="date"
+        max={today}
+        value={date}
+        onChange={(e) => {
+          if (e.currentTarget.value) onJump(e.currentTarget.value);
+        }}
+        className="rounded bg-white/10 px-3 py-2 text-sm"
+        aria-label="Daily challenge date"
+      />
     </div>
   );
 }

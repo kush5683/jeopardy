@@ -3,10 +3,22 @@ import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
-import { AuthedRequest, requireAuth, signToken } from "../middleware/auth";
+import {
+  AuthedRequest,
+  clearAuthCookie,
+  requireAuth,
+  setAuthCookie,
+  signToken,
+} from "../middleware/auth";
 import { authLimiter } from "../middleware/rateLimit";
 
 export const authRouter = Router();
+
+authRouter.use((_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  res.set("Pragma", "no-cache");
+  next();
+});
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -20,8 +32,12 @@ authRouter.post("/register", authLimiter, async (req, res) => {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
-  const { email, password, displayName } = parsed.data;
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const email = parsed.data.email.trim().toLowerCase();
+  const password = parsed.data.password;
+  const displayName = parsed.data.displayName.trim();
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
   if (existing) {
     res.status(409).json({ error: "email already registered" });
     return;
@@ -30,10 +46,8 @@ authRouter.post("/register", authLimiter, async (req, res) => {
   const user = await prisma.user.create({
     data: { email, passwordHash, displayName },
   });
-  res.json({
-    token: signToken(user.id),
-    user: { id: user.id, email: user.email, displayName: user.displayName },
-  });
+  setAuthCookie(req, res, signToken(user.id));
+  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
 });
 
 const loginSchema = z.object({
@@ -47,8 +61,11 @@ authRouter.post("/login", authLimiter, async (req, res) => {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
-  const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
+  const email = parsed.data.email.trim().toLowerCase();
+  const password = parsed.data.password;
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
   if (!user || !user.passwordHash) {
     res.status(401).json({ error: "invalid credentials" });
     return;
@@ -58,10 +75,8 @@ authRouter.post("/login", authLimiter, async (req, res) => {
     res.status(401).json({ error: "invalid credentials" });
     return;
   }
-  res.json({
-    token: signToken(user.id),
-    user: { id: user.id, email: user.email, displayName: user.displayName },
-  });
+  setAuthCookie(req, res, signToken(user.id));
+  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
 });
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -94,8 +109,11 @@ authRouter.post("/google", authLimiter, async (req, res) => {
   }
 
   let user = await prisma.user.findUnique({ where: { googleId: payload.sub } });
+  const email = payload.email.trim().toLowerCase();
   if (!user) {
-    user = await prisma.user.findUnique({ where: { email: payload.email } });
+    user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+    });
     if (user) {
       user = await prisma.user.update({
         where: { id: user.id },
@@ -104,21 +122,24 @@ authRouter.post("/google", authLimiter, async (req, res) => {
     } else {
       user = await prisma.user.create({
         data: {
-          email: payload.email,
+          email,
           googleId: payload.sub,
-          displayName: payload.name || payload.email.split("@")[0],
+          displayName: payload.name?.trim() || email.split("@")[0],
         },
       });
     }
   }
-  res.json({
-    token: signToken(user.id),
-    user: { id: user.id, email: user.email, displayName: user.displayName },
-  });
+  setAuthCookie(req, res, signToken(user.id));
+  res.json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
 });
 
 authRouter.get("/config", (_req, res) => {
   res.json({ googleClientId: googleClientId || null });
+});
+
+authRouter.post("/logout", (req, res) => {
+  clearAuthCookie(req, res);
+  res.json({ ok: true });
 });
 
 authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {

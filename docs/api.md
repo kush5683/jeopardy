@@ -6,9 +6,9 @@ Base path: `/api`
 
 ### Authentication
 
-- Authenticated endpoints require `Authorization: Bearer <jwt>`
-- Tokens are issued by `/auth/register`, `/auth/login`, and `/auth/google`
-- Some endpoints use optional auth and return richer data when a valid token is present
+- The browser app authenticates with an `HttpOnly` same-site session cookie set by `/auth/register`, `/auth/login`, and `/auth/google`
+- Protected endpoints also accept `Authorization: Bearer <jwt>` for internal tools and tests
+- Some endpoints use optional auth and return richer data when a valid session is present
 
 ### Rate Limits
 
@@ -39,6 +39,7 @@ Validation errors from `zod` return the flattened error object instead of a sing
 | `POST` | `/auth/register` | no | Create an email/password account |
 | `POST` | `/auth/login` | no | Log in with email/password |
 | `POST` | `/auth/google` | no | Log in with Google ID token |
+| `POST` | `/auth/logout` | no | Clear the session cookie |
 | `GET` | `/auth/config` | no | Returns Google client config for the frontend |
 | `GET` | `/auth/me` | yes | Returns account profile and auth capabilities |
 | `PATCH` | `/auth/me` | yes | Update display name |
@@ -49,7 +50,7 @@ Validation errors from `zod` return the flattened error object instead of a sing
 
 ```json
 POST /auth/register
-{ "email": "user@example.com", "password": "password123", "displayName": "Kush" }
+{ "email": "user@example.com", "password": "password123", "displayName": "Player 1" }
 ```
 
 ```json
@@ -81,7 +82,8 @@ DELETE /auth/me
 
 ### Auth Responses
 
-- register/login/google return `{ token, user }`
+- register/login/google return `{ user }` and set the session cookie
+- `/auth/logout` returns `{ ok: true }` and clears the session cookie
 - `/auth/me` returns `hasPassword` and `hasGoogle` booleans rather than raw credential data
 
 ## Clues
@@ -92,6 +94,8 @@ DELETE /auth/me
 | `GET` | `/clues/weak` | yes | Random clues from the user's weakest categories |
 | `GET` | `/clues/episode` | no | Full aired board for one episode |
 | `GET` | `/clues/mixed-board` | no | Mixed-category board with random Final |
+| `POST` | `/clues/board-share` | yes | Create a short share code for a board payload |
+| `GET` | `/clues/board-share/:code` | no | Resolve a shared board code back into a board payload |
 | `GET` | `/clues/categories` | no | All category names |
 | `POST` | `/clues/submit` | yes | Judge and persist an answer |
 | `POST` | `/clues/check` | no | Judge an answer without persistence |
@@ -100,6 +104,29 @@ DELETE /auth/me
 | `GET` | `/clues/:id/wiki` | no | Fetch or return cached Wikipedia summary |
 | `POST` | `/clues/:id/hint/prepare` | no | Kick off background hint generation |
 | `GET` | `/clues/:id/hint` | no | Poll hint status |
+
+## Multiplayer
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/multiplayer/rooms` | yes | Create a private multiplayer lobby |
+| `POST` | `/multiplayer/join` | yes | Join a lobby by room code |
+| `GET` | `/multiplayer/rooms/:code` | yes | Fetch room state for an existing participant |
+| `POST` | `/multiplayer/rooms/:code/start` | yes | Host starts live play from the lobby |
+| `POST` | `/multiplayer/rooms/:code/leave` | yes | Leave the lobby or forfeit/end a live room |
+
+WebSocket:
+
+- `GET ws /multiplayer/ws?code=ABC123`
+- authenticated with the same browser session cookie as the REST API
+- emits authoritative `room-state` snapshots and `error` messages
+
+Room rules:
+
+- room codes are 6 characters from `A-Z` and `2-9`
+- maximum 3 total players per room, including the host
+- joins are only allowed while the room is in `LOBBY`
+- active gameplay actions are sent over the websocket: clue selection, buzzing, wagering, answering, and host advance
 
 ### `GET /clues/random`
 
@@ -159,6 +186,20 @@ Builds a synthetic full board:
 - 6 random categories for Double Jeopardy
 - 1 random Final Jeopardy clue
 - Daily Doubles sprinkled randomly
+
+### Board Share Codes
+
+`POST /clues/board-share`
+
+- authenticated users can persist the current board payload and receive a short code
+- request body: `{ "episode": { ...board payload... } }`
+- response: `{ "code": "ABCDWXYZ" }`
+
+`GET /clues/board-share/:code`
+
+- resolves a previously shared code
+- accepts codes with or without separators such as `ABCD-EFGH`
+- response: `{ "episode": { ...board payload... } }`
 
 ### `POST /clues/submit`
 

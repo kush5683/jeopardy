@@ -42,6 +42,9 @@ GOOGLE_CLIENT_ID=
 SEED_DB=false
 NODE_ENV=production
 PORT=3000
+COOKIE_SECURE=1
+TRUST_PROXY_HEADERS=0
+WIKIPEDIA_USER_AGENT=JeopardyTrainer/1.0 (admin@example.com)
 ```
 
 Important notes:
@@ -50,6 +53,9 @@ Important notes:
 - Compose does not read the root `DATABASE_URL` for the app service; it constructs its own container-safe value from `DB_PASSWORD`
 - the root `DATABASE_URL` is still useful when you source `.env` for host-run scripts, but it must be overridden for host development
 - `GOOGLE_CLIENT_ID` is optional
+- `COOKIE_SECURE=1` is recommended for any HTTPS deployment; set `0` only for non-TLS local testing
+- `TRUST_PROXY_HEADERS=1` is only needed when the app sits behind a non-local proxy hop and should trust forwarded client-IP headers
+- `WIKIPEDIA_USER_AGENT` should identify the deployment with a maintainer contact rather than baking personal data into source code
 - `OLLAMA_HOST` is not in `.env.example` but Compose will default it to `http://host.docker.internal:11434`
 
 ## Build and Startup Sequence

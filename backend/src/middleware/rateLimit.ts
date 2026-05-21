@@ -1,24 +1,27 @@
 import { Request } from "express";
 import rateLimit from "express-rate-limit";
+import { requestIsLocalProxy } from "./auth";
 
-// We sit behind Cloudflare + an nginx reverse proxy, so req.ip would resolve to
-// the proxy. Prefer CF-Connecting-IP (set by Cloudflare), then the first hop of
-// X-Forwarded-For, then req.ip as a last resort. We don't enable `trust proxy`
-// because that would also affect req.protocol / req.hostname, which we don't
-// rely on but easily could in the future — the explicit key extractor is safer.
+const IS_TEST = process.env.NODE_ENV === "test";
+
+// Only trust forwarding headers when the direct peer is a local/private proxy.
+// If the app is ever exposed directly, a client should not be able to spoof
+// CF-Connecting-IP / X-Forwarded-For and evade rate limits.
 function clientIp(req: Request): string {
-  const cf = req.headers["cf-connecting-ip"];
-  if (typeof cf === "string" && cf.length > 0) return cf;
-  const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string" && xff.length > 0) {
-    return xff.split(",")[0]!.trim();
+  if (requestIsLocalProxy(req)) {
+    const cf = req.headers["cf-connecting-ip"];
+    if (typeof cf === "string" && cf.length > 0) return cf;
+    const xff = req.headers["x-forwarded-for"];
+    if (typeof xff === "string" && xff.length > 0) {
+      return xff.split(",")[0]!.trim();
+    }
   }
-  return req.ip ?? "unknown";
+  return req.socket.remoteAddress ?? req.ip ?? "unknown";
 }
 
 export const authLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 10,
+  limit: IS_TEST ? 10_000 : 10,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -27,7 +30,7 @@ export const authLimiter = rateLimit({
 
 export const friendRequestLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 10,
+  limit: IS_TEST ? 10_000 : 10,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
@@ -36,9 +39,36 @@ export const friendRequestLimiter = rateLimit({
 
 export const submitLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 120, // generous — one clue every ~0.5s — but bounds bot grinding.
+  limit: IS_TEST ? 10_000 : 120, // generous — one clue every ~0.5s — but bounds bot grinding.
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: clientIp,
   message: { error: "rate limit exceeded" },
+});
+
+export const boardShareLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: IS_TEST ? 10_000 : 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: "too many board share requests; slow down" },
+});
+
+export const multiplayerCreateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: IS_TEST ? 10_000 : 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: "too many room creations; slow down" },
+});
+
+export const multiplayerJoinLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: IS_TEST ? 10_000 : 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: "too many room join attempts; slow down" },
 });

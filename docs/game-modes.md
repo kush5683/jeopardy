@@ -14,6 +14,7 @@
 | `/buzzer` | yes | Buzzer-reflex training |
 | `/review` | yes | Spaced review queue |
 | `/board` | yes | Full Jeopardy board play |
+| `/board/multiplayer` | yes | Private live multiplayer board rooms |
 | `/final` | yes | Standalone Final Jeopardy round |
 | `/friends` | yes | Social graph management |
 | `/dashboard` | yes | Personal performance metrics |
@@ -168,6 +169,7 @@ Behavior:
 - full Jeopardy and Double Jeopardy board selection
 - Daily Double wagering
 - Final Jeopardy wagering
+- short board share codes so friends can load the same board
 - optional browser text-to-speech
 - refresh-resume support through local storage
 
@@ -175,6 +177,8 @@ Primary backend endpoints:
 
 - `GET /api/clues/episode`
 - `GET /api/clues/mixed-board`
+- `POST /api/clues/board-share`
+- `GET /api/clues/board-share/:code`
 - `POST /api/clues/submit`
 - `POST /api/clues/check`
 
@@ -182,6 +186,32 @@ Special notes:
 
 - mixed boards randomize Daily Doubles because the database only knows real aired Daily Doubles
 - if the player finishes Double Jeopardy below zero, Final Jeopardy is skipped
+
+## Online Multiplayer
+
+Route: `/board/multiplayer`
+
+Purpose:
+
+- private live full-board play for up to 3 total authenticated players
+
+Behavior:
+
+- host creates a room from a real episode or mixed board and shares a short room code
+- other logged-in players join by code before the host starts
+- once started, the roster locks; only original players can reconnect
+- shared server-authoritative board state, scores, and buzz timing
+- first buzz gets the only answer attempt; wrong answers and timeouts close the clue
+- Final Jeopardy collects wagers and answers from all eligible players, then resolves together
+
+Primary backend endpoints:
+
+- `POST /api/multiplayer/rooms`
+- `POST /api/multiplayer/join`
+- `GET /api/multiplayer/rooms/:code`
+- `POST /api/multiplayer/rooms/:code/start`
+- `POST /api/multiplayer/rooms/:code/leave`
+- `GET ws /api/multiplayer/ws?code=...`
 
 ## Final Jeopardy
 
