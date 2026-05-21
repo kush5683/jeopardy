@@ -25,6 +25,7 @@ model User {
   receivedRequests Friendship[]   @relation("addressee")
   dailyAttempts    DailyAttempt[]
   reviewSchedules  ReviewSchedule[]
+  sharedBoards     SharedBoard[]
 }
 
 model DailyAttempt {
@@ -204,6 +205,18 @@ model UserFlashcard {
 
   @@unique([userId, flashcardId])
   @@index([userId, knownLevel])
+}
+
+model SharedBoard {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  createdById String?
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }
 
 // Persisted LLM judge verdicts. We only store ACCEPTED (YES) verdicts so a

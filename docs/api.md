@@ -94,6 +94,8 @@ DELETE /auth/me
 | `GET` | `/clues/weak` | yes | Random clues from the user's weakest categories |
 | `GET` | `/clues/episode` | no | Full aired board for one episode |
 | `GET` | `/clues/mixed-board` | no | Mixed-category board with random Final |
+| `POST` | `/clues/board-share` | yes | Create a short share code for a board payload |
+| `GET` | `/clues/board-share/:code` | no | Resolve a shared board code back into a board payload |
 | `GET` | `/clues/categories` | no | All category names |
 | `POST` | `/clues/submit` | yes | Judge and persist an answer |
 | `POST` | `/clues/check` | no | Judge an answer without persistence |
@@ -161,6 +163,20 @@ Builds a synthetic full board:
 - 6 random categories for Double Jeopardy
 - 1 random Final Jeopardy clue
 - Daily Doubles sprinkled randomly
+
+### Board Share Codes
+
+`POST /clues/board-share`
+
+- authenticated users can persist the current board payload and receive a short code
+- request body: `{ "episode": { ...board payload... } }`
+- response: `{ "code": "ABCDWXYZ" }`
+
+`GET /clues/board-share/:code`
+
+- resolves a previously shared code
+- accepts codes with or without separators such as `ABCD-EFGH`
+- response: `{ "episode": { ...board payload... } }`
 
 ### `POST /clues/submit`
 

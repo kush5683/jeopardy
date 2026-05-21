@@ -58,7 +58,9 @@ export function createApp() {
   app.use((req, res, next) => {
     const host = (req.headers.host ?? "").toLowerCase();
     res.setHeader("Content-Security-Policy", contentSecurityPolicy());
-    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    // OAuth / SSO popup flows need to retain a usable opener relationship so
+    // the popup can post its result back to the app window.
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
     res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
     res.setHeader("Origin-Agent-Cluster", "?1");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");

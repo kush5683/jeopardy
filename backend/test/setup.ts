@@ -30,6 +30,7 @@ beforeEach(async () => {
       "DailyAttempt",
       "ReviewSchedule",
       "UserFlashcard",
+      "SharedBoard",
       "Friendship",
       "User",
       "Clue",

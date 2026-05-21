@@ -168,6 +168,7 @@ Behavior:
 - full Jeopardy and Double Jeopardy board selection
 - Daily Double wagering
 - Final Jeopardy wagering
+- short board share codes so friends can load the same board
 - optional browser text-to-speech
 - refresh-resume support through local storage
 
@@ -175,6 +176,8 @@ Primary backend endpoints:
 
 - `GET /api/clues/episode`
 - `GET /api/clues/mixed-board`
+- `POST /api/clues/board-share`
+- `GET /api/clues/board-share/:code`
 - `POST /api/clues/submit`
 - `POST /api/clues/check`
 

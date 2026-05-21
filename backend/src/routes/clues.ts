@@ -7,10 +7,14 @@ import { scheduleReviewOnWrong } from "./review";
 import { fetchWikipedia } from "../lib/wikipedia";
 import { getCuratedAliases } from "../lib/curatedAliases";
 import { warmWikiCache } from "../lib/warmWikiCache";
-import { submitLimiter } from "../middleware/rateLimit";
+import { boardShareLimiter, submitLimiter } from "../middleware/rateLimit";
 import { judgeWithLLM, prepareHint, isHintInFlight } from "../lib/llmJudge";
+import crypto from "crypto";
 
 export const cluesRouter = Router();
+
+const SHARE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const SHARE_CODE_LEN = 8;
 
 const KNOWN_META_CATEGORIES = new Set([
   "Geography",
@@ -38,6 +42,64 @@ function parseMetaCategories(raw: unknown): string[] | null {
   // classifier finishes.
   if (parts.length >= KNOWN_META_CATEGORIES.size) return null;
   return parts;
+}
+
+const sharedCellSchema = z.object({
+  id: z.number().int().positive(),
+  question: z.string().min(1).max(1500),
+  value: z.number().int().min(0).max(50000),
+  round: z.enum(["JEOPARDY", "DOUBLE_JEOPARDY", "FINAL_JEOPARDY"]),
+  category: z.string().min(1).max(200),
+  dailyDouble: z.boolean(),
+});
+
+const sharedRoundBoardSchema = z.object({
+  values: z.array(z.number().int().min(0).max(50000)).length(5),
+  categories: z.array(
+    z.object({
+      name: z.string().min(1).max(200),
+      cells: z.array(sharedCellSchema.nullable()).length(5),
+    }),
+  ).length(6),
+});
+
+const sharedEpisodeSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  jeopardy: sharedRoundBoardSchema,
+  doubleJeopardy: sharedRoundBoardSchema,
+  finalJeopardy: sharedCellSchema.nullable(),
+});
+
+function normalizeShareCode(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function newShareCode(): string {
+  const bytes = crypto.randomBytes(SHARE_CODE_LEN);
+  let out = "";
+  for (let i = 0; i < SHARE_CODE_LEN; i++) {
+    out += SHARE_CODE_ALPHABET[bytes[i] % SHARE_CODE_ALPHABET.length];
+  }
+  return out;
+}
+
+async function createSharedBoardCode(
+  createdById: string,
+  payload: z.infer<typeof sharedEpisodeSchema>,
+): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const code = newShareCode();
+    try {
+      await prisma.sharedBoard.create({
+        data: { code, createdById, payload },
+      });
+      return code;
+    } catch (err: any) {
+      if (err?.code === "P2002") continue;
+      throw err;
+    }
+  }
+  throw new Error("failed to allocate shared board code");
 }
 
 cluesRouter.get("/random", async (req, res) => {
@@ -400,6 +462,47 @@ cluesRouter.get("/mixed-board", async (_req, res) => {
   warmWikiCache(fullClues);
 
   res.json({ jeopardy, doubleJeopardy, finalJeopardy });
+});
+
+const boardShareCreateSchema = z.object({
+  episode: sharedEpisodeSchema,
+});
+
+cluesRouter.post(
+  "/board-share",
+  boardShareLimiter,
+  requireAuth,
+  async (req: AuthedRequest, res) => {
+    const parsed = boardShareCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+    const code = await createSharedBoardCode(req.userId!, parsed.data.episode);
+    res.json({ code });
+  },
+);
+
+cluesRouter.get("/board-share/:code", boardShareLimiter, async (req, res) => {
+  const code = normalizeShareCode(req.params.code);
+  if (!new RegExp(`^[${SHARE_CODE_ALPHABET}]{${SHARE_CODE_LEN}}$`).test(code)) {
+    res.status(400).json({ error: "invalid share code" });
+    return;
+  }
+  const share = await prisma.sharedBoard.findUnique({
+    where: { code },
+    select: { payload: true },
+  });
+  if (!share) {
+    res.status(404).json({ error: "share code not found" });
+    return;
+  }
+  const payload = sharedEpisodeSchema.safeParse(share.payload);
+  if (!payload.success) {
+    res.status(500).json({ error: "shared board payload invalid" });
+    return;
+  }
+  res.json({ episode: payload.data });
 });
 
 cluesRouter.get("/categories", async (_req, res) => {

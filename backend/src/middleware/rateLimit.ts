@@ -43,3 +43,12 @@ export const submitLimiter = rateLimit({
   keyGenerator: clientIp,
   message: { error: "rate limit exceeded" },
 });
+
+export const boardShareLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: "too many board share requests; slow down" },
+});
