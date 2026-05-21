@@ -1,0 +1,94 @@
+[
+  {
+    "deck": "U.S. Presidents",
+    "description": "All 46 U.S. presidents in order — drilled by number, name, and key fact.",
+    "cards": [
+      { "front": "1st President", "back": "George Washington", "hint": "Mt. Vernon, Virginia" },
+      { "front": "2nd President", "back": "John Adams", "hint": "First to live in the White House" },
+      { "front": "3rd President", "back": "Thomas Jefferson", "hint": "Wrote the Declaration of Independence" },
+      { "front": "4th President", "back": "James Madison", "hint": "Father of the Constitution" },
+      { "front": "5th President", "back": "James Monroe", "hint": "Monroe Doctrine" },
+      { "front": "16th President", "back": "Abraham Lincoln", "hint": "Civil War, assassinated 1865" },
+      { "front": "26th President", "back": "Theodore Roosevelt", "hint": "Rough Rider, trust-buster" },
+      { "front": "32nd President", "back": "Franklin D. Roosevelt", "hint": "New Deal, WWII, four terms" },
+      { "front": "35th President", "back": "John F. Kennedy", "hint": "Assassinated in Dallas, 1963" },
+      { "front": "44th President", "back": "Barack Obama", "hint": "First African American president" }
+    ]
+  },
+  {
+    "deck": "World Capitals",
+    "description": "Capitals of countries that frequently appear on Jeopardy!.",
+    "cards": [
+      { "front": "Australia", "back": "Canberra", "hint": "Not Sydney or Melbourne" },
+      { "front": "Canada", "back": "Ottawa", "hint": "Not Toronto" },
+      { "front": "Brazil", "back": "Brasília", "hint": "Planned capital, built 1956-60" },
+      { "front": "Switzerland", "back": "Bern", "hint": "Not Zurich or Geneva" },
+      { "front": "Turkey", "back": "Ankara", "hint": "Not Istanbul" },
+      { "front": "Vietnam", "back": "Hanoi", "hint": "In the north" },
+      { "front": "Kazakhstan", "back": "Astana", "hint": "Renamed Nur-Sultan 2019-2022" },
+      { "front": "Bhutan", "back": "Thimphu", "hint": "Only capital with no traffic lights" },
+      { "front": "South Africa", "back": "Pretoria (executive)", "hint": "Three capitals total" },
+      { "front": "Myanmar", "back": "Naypyidaw", "hint": "Replaced Yangon (Rangoon) in 2005" }
+    ]
+  },
+  {
+    "deck": "Shakespeare Plays",
+    "description": "Major Shakespeare plays — characters, settings, key lines.",
+    "cards": [
+      { "front": "Set in Verona, doomed lovers", "back": "Romeo and Juliet" },
+      { "front": "Danish prince, 'To be or not to be'", "back": "Hamlet" },
+      { "front": "Three witches, 'Out, damned spot'", "back": "Macbeth" },
+      { "front": "Moor of Venice, undone by Iago", "back": "Othello" },
+      { "front": "Aging king divides his kingdom", "back": "King Lear" },
+      { "front": "Magical island, Prospero", "back": "The Tempest" },
+      { "front": "Ides of March, 'Et tu, Brute?'", "back": "Julius Caesar" },
+      { "front": "Athenian forest, Oberon and Titania", "back": "A Midsummer Night's Dream" },
+      { "front": "Shylock and the pound of flesh", "back": "The Merchant of Venice" },
+      { "front": "Beatrice and Benedick's witty banter", "back": "Much Ado About Nothing" }
+    ]
+  },
+  {
+    "deck": "Periodic Table Symbols",
+    "description": "Element symbols that don't match their English names.",
+    "cards": [
+      { "front": "Au", "back": "Gold (Latin: aurum)" },
+      { "front": "Ag", "back": "Silver (Latin: argentum)" },
+      { "front": "Pb", "back": "Lead (Latin: plumbum)" },
+      { "front": "Fe", "back": "Iron (Latin: ferrum)" },
+      { "front": "Hg", "back": "Mercury (Latin: hydrargyrum)" },
+      { "front": "Sn", "back": "Tin (Latin: stannum)" },
+      { "front": "Sb", "back": "Antimony (Latin: stibium)" },
+      { "front": "Na", "back": "Sodium (Latin: natrium)" },
+      { "front": "K", "back": "Potassium (Latin: kalium)" },
+      { "front": "W", "back": "Tungsten (German: wolfram)" }
+    ]
+  },
+  {
+    "deck": "Jeopardy! Wordplay Patterns",
+    "description": "Common wordplay categories — anagrams, before-and-after, rhymes, hidden words.",
+    "cards": [
+      {
+        "front": "BEFORE & AFTER: Combine 'Cape Cod' + 'Codger'",
+        "back": "Cape Codger",
+        "hint": "Last word of A = first word of B"
+      },
+      {
+        "front": "What is an anagram of 'LISTEN'?",
+        "back": "SILENT"
+      },
+      {
+        "front": "RHYME TIME: 'Feline confection' (4,5)",
+        "back": "Sweet treat / Cat hat / etc.",
+        "hint": "Two rhyming words fitting the clue"
+      },
+      {
+        "front": "What does 'spoonerism' mean?",
+        "back": "Swapping initial sounds of two words ('belly jeans' for 'jelly beans')"
+      },
+      {
+        "front": "What is a portmanteau?",
+        "back": "A blended word like 'brunch' (breakfast + lunch)"
+      }
+    ]
+  }
+]

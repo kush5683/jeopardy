@@ -1,0 +1,221 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String?
+  googleId      String?  @unique
+  displayName   String
+  createdAt     DateTime @default(now())
+  disabledMetaCategories String[] @default([])
+  isTestAccount Boolean  @default(false)
+
+  responses        ClueResponse[]
+  buzzerSessions   BuzzerSession[]
+  flashcardProgress UserFlashcard[]
+  sentRequests     Friendship[]   @relation("requester")
+  receivedRequests Friendship[]   @relation("addressee")
+  dailyAttempts    DailyAttempt[]
+  reviewSchedules  ReviewSchedule[]
+}
+
+model DailyAttempt {
+  id             String   @id @default(cuid())
+  userId         String
+  date           DateTime @db.Date
+  score          Int
+  totalCorrect   Int
+  totalClues     Int
+  completedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date, score])
+}
+
+model ReviewSchedule {
+  id             String   @id @default(cuid())
+  userId         String
+  clueId         Int
+  nextReviewAt   DateTime
+  intervalDays   Int      @default(1)
+  reviewCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clue Clue @relation(fields: [clueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clueId])
+  @@index([userId, nextReviewAt])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  respondedAt DateTime?
+
+  requester User @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+}
+
+enum Round {
+  JEOPARDY
+  DOUBLE_JEOPARDY
+  FINAL_JEOPARDY
+}
+
+model Category {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  metaCategories  String[] @default([])
+  clues           Clue[]
+
+  @@index([metaCategories], type: Gin)
+}
+
+model Clue {
+  id           Int      @id @default(autoincrement())
+  categoryId   Int
+  round        Round
+  value        Int
+  question     String
+  answer       String
+  airDate      DateTime?
+  dailyDouble  Boolean  @default(false)
+
+  wikiTitle      String?
+  wikiExtract    String?
+  wikiUrl        String?
+  wikiThumb      String?
+  wikiAliases    String[]  @default([])
+  wikiFetchedAt  DateTime?
+
+  // LLM-generated post-hoc hint explaining the clue's wordplay/structure.
+  // Auto-shown on the result panel after a user answers. Cached forever per clue.
+  hintText       String?
+  hintFetchedAt  DateTime?
+
+  category  Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  responses ClueResponse[]
+  reviewSchedules ReviewSchedule[]
+
+  @@index([categoryId])
+  @@index([round, value])
+}
+
+enum PlayMode {
+  PRACTICE
+  BUZZER
+  DAILY
+  REVIEW
+  BOARD
+  FINAL
+}
+
+model ClueResponse {
+  id              String   @id @default(cuid())
+  userId          String
+  clueId          Int
+  correct         Boolean
+  responseTimeMs  Int
+  mode            PlayMode
+  wager           Int?
+  buzzerSessionId String?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clue Clue @relation(fields: [clueId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([clueId])
+  @@index([buzzerSessionId])
+}
+
+model BuzzerSession {
+  id              String   @id @default(cuid())
+  userId          String
+  sessionId       String?  @unique
+  totalClues      Int
+  correctCount    Int
+  avgResponseMs   Int
+  coryatScore     Int
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([coryatScore])
+}
+
+model FlashcardDeck {
+  id          Int    @id @default(autoincrement())
+  name        String
+  description String?
+  cards       Flashcard[]
+
+  @@unique([name])
+}
+
+model Flashcard {
+  id     Int    @id @default(autoincrement())
+  deckId Int
+  front  String
+  back   String
+  hint   String?
+
+  deck     FlashcardDeck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  progress UserFlashcard[]
+
+  @@index([deckId])
+}
+
+model UserFlashcard {
+  id              String   @id @default(cuid())
+  userId          String
+  flashcardId     Int
+  knownLevel      Int      @default(0)
+  reviewCount     Int      @default(0)
+  lastReviewedAt  DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flashcard Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, flashcardId])
+  @@index([userId, knownLevel])
+}
+
+// Persisted LLM judge verdicts. We only store ACCEPTED (YES) verdicts so a
+// repeat (canonical, submitted) pair short-circuits the model entirely.
+// Rejected verdicts are NOT stored — we still want to re-ask the model if
+// prompts/weights improve. Keys are stored normalized (lowercase, trimmed)
+// so casing variants share rows.
+model AcceptedLLMVerdict {
+  id        Int      @id @default(autoincrement())
+  canonical String
+  submitted String
+  createdAt DateTime @default(now())
+
+  @@unique([canonical, submitted])
+}

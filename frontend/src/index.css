@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: #0b0d2c;
+  color: #fff;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.clue-tile {
+  background: linear-gradient(180deg, #060CE9 0%, #040983 100%);
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+  border: 2px solid #000;
+}
+
+.dollar {
+  color: #D69F4C;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.category-banner {
+  background: #060CE9;
+  color: #fff;
+  border: 2px solid #000;
+  text-transform: uppercase;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  letter-spacing: 0.05em;
+  text-shadow: 2px 2px 0 #000;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "PlayMode" ADD VALUE 'BOARD';
+ALTER TYPE "PlayMode" ADD VALUE 'FINAL';
