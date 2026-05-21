@@ -15,6 +15,7 @@ import { Daily } from "./pages/Daily";
 import { Review } from "./pages/Review";
 import { FinalJeopardy } from "./pages/FinalJeopardy";
 import { Board } from "./pages/Board";
+import { MultiplayerBoard } from "./pages/MultiplayerBoard";
 import { Settings } from "./pages/Settings";
 import { NotFound } from "./pages/NotFound";
 import { ReactNode } from "react";
@@ -43,6 +44,8 @@ export default function App() {
           <Route path="/review" element={<RequireAuth><Review /></RequireAuth>} />
           <Route path="/final" element={<RequireAuth><FinalJeopardy /></RequireAuth>} />
           <Route path="/board" element={<RequireAuth><Board /></RequireAuth>} />
+          <Route path="/board/multiplayer" element={<RequireAuth><MultiplayerBoard /></RequireAuth>} />
+          <Route path="/board/multiplayer/:code" element={<RequireAuth><MultiplayerBoard /></RequireAuth>} />
           <Route path="/friends" element={<RequireAuth><Friends /></RequireAuth>} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />

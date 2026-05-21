@@ -31,6 +31,8 @@ beforeEach(async () => {
       "ReviewSchedule",
       "UserFlashcard",
       "SharedBoard",
+      "MultiplayerPlayer",
+      "MultiplayerRoom",
       "Friendship",
       "User",
       "Clue",

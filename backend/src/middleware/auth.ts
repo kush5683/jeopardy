@@ -1,3 +1,4 @@
+import { IncomingHttpHeaders } from "http";
 import { Request, Response, NextFunction, CookieOptions } from "express";
 import jwt from "jsonwebtoken";
 
@@ -54,11 +55,14 @@ function cookieOptions(req: Request): CookieOptions {
   };
 }
 
-function readCookie(req: Request, name: string): string | null {
-  const header = req.headers.cookie;
+function readCookieHeader(
+  header: string | string[] | undefined,
+  name: string,
+): string | null {
   if (!header) return null;
   const target = `${name}=`;
-  for (const part of header.split(";")) {
+  const value = Array.isArray(header) ? header.join(";") : header;
+  for (const part of value.split(";")) {
     const trimmed = part.trim();
     if (!trimmed.startsWith(target)) continue;
     const raw = trimmed.slice(target.length);
@@ -71,12 +75,18 @@ function readCookie(req: Request, name: string): string | null {
   return null;
 }
 
-function tokenFromRequest(req: Request): string | null {
-  const header = req.headers.authorization;
+export function readAuthTokenFromHeaders(
+  headers: Pick<IncomingHttpHeaders, "authorization" | "cookie">,
+): string | null {
+  const header = headers.authorization;
   if (header?.startsWith("Bearer ")) {
     return header.slice(7);
   }
-  return readCookie(req, SESSION_COOKIE_NAME);
+  return readCookieHeader(headers.cookie, SESSION_COOKIE_NAME);
+}
+
+function tokenFromRequest(req: Request): string | null {
+  return readAuthTokenFromHeaders(req.headers);
 }
 
 export function signToken(userId: string): string {
@@ -116,6 +126,14 @@ export function requestIsLocalProxy(req: Request): boolean {
   );
 }
 
+export function verifyAuthToken(token: string): string {
+  const decoded = jwt.verify(token, JWT_SECRET_VALUE, {
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+  }) as { sub: string };
+  return decoded.sub;
+}
+
 export function requireAuth(
   req: AuthedRequest,
   res: Response,
@@ -127,11 +145,7 @@ export function requireAuth(
     return;
   }
   try {
-    const decoded = jwt.verify(token, JWT_SECRET_VALUE, {
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
-    }) as { sub: string };
-    req.userId = decoded.sub;
+    req.userId = verifyAuthToken(token);
     next();
   } catch {
     clearAuthCookie(req, res);
@@ -147,11 +161,7 @@ export function optionalAuth(
   const token = tokenFromRequest(req);
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET_VALUE, {
-        issuer: JWT_ISSUER,
-        audience: JWT_AUDIENCE,
-      }) as { sub: string };
-      req.userId = decoded.sub;
+      req.userId = verifyAuthToken(token);
     } catch {
       // ignore — treat as anonymous
     }

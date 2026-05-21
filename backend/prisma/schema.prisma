@@ -26,6 +26,8 @@ model User {
   dailyAttempts    DailyAttempt[]
   reviewSchedules  ReviewSchedule[]
   sharedBoards     SharedBoard[]
+  hostedMultiplayerRooms MultiplayerRoom[] @relation("multiplayerHost")
+  multiplayerSeats MultiplayerPlayer[]
 }
 
 model DailyAttempt {
@@ -135,6 +137,14 @@ enum PlayMode {
   FINAL
 }
 
+enum MultiplayerRoomStatus {
+  LOBBY
+  LIVE
+  FINAL
+  COMPLETE
+  ABANDONED
+}
+
 model ClueResponse {
   id              String   @id @default(cuid())
   userId          String
@@ -217,6 +227,40 @@ model SharedBoard {
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+}
+
+model MultiplayerRoom {
+  id          String                @id @default(cuid())
+  code        String                @unique
+  hostUserId  String
+  status      MultiplayerRoomStatus @default(LOBBY)
+  boardPayload Json
+  state       Json
+  createdAt   DateTime              @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  host    User                @relation("multiplayerHost", fields: [hostUserId], references: [id], onDelete: Cascade)
+  players MultiplayerPlayer[]
+
+  @@index([hostUserId, createdAt])
+  @@index([status, createdAt])
+}
+
+model MultiplayerPlayer {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  seat      Int
+  joinedAt  DateTime @default(now())
+  leftAt    DateTime?
+
+  room MultiplayerRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@unique([roomId, seat])
+  @@index([userId, joinedAt])
 }
 
 // Persisted LLM judge verdicts. We only store ACCEPTED (YES) verdicts so a

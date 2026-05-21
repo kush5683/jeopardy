@@ -11,6 +11,7 @@ import { statsRouter } from "./routes/stats";
 import { dailyRouter } from "./routes/daily";
 import { reviewRouter } from "./routes/review";
 import { preferencesRouter } from "./routes/preferences";
+import { multiplayerRouter } from "./routes/multiplayer";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -113,6 +114,7 @@ export function createApp() {
   app.use("/api/daily", dailyRouter);
   app.use("/api/review", reviewRouter);
   app.use("/api/preferences", preferencesRouter);
+  app.use("/api/multiplayer", multiplayerRouter);
 
   // Serve frontend static files. In production (Dockerfile) frontend is copied to /app/public.
   // In dev (running from src), it's at ../../frontend/dist.

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { useTextToSpeech } from "../hooks/useTextToSpeech";
@@ -719,7 +720,7 @@ export function Board() {
             </div>
           </div>
         )}
-        <div className="grid md:grid-cols-2 gap-4 mt-6">
+        <div className="grid md:grid-cols-3 gap-4 mt-6">
           <button
             onClick={() => startGame("episode")}
             className="clue-tile p-6 rounded text-left hover:scale-[1.02] transition"
@@ -738,11 +739,24 @@ export function Board() {
               6 random categories per round drawn from across all episodes, plus a random Final. Daily Doubles placed randomly.
             </p>
           </button>
+          <Link
+            to="/board/multiplayer"
+            className="clue-tile p-6 rounded text-left hover:scale-[1.02] transition block"
+          >
+            <h2 className="font-category text-2xl text-jeopardy-gold">Start multiplayer game</h2>
+            <p className="text-white/85 mt-2 text-sm">
+              Host a private live room for up to 3 total players and share a room code for real-time play.
+            </p>
+          </Link>
         </div>
         <div className="max-w-md mx-auto bg-white/5 rounded p-4 space-y-3 text-left">
           <h2 className="font-category text-2xl text-jeopardy-gold text-center">
-            Have a share code?
+            Have an async share code?
           </h2>
+          <p className="text-sm text-white/70 text-center">
+            Share codes load the same board for asynchronous play. Use{" "}
+            <span className="font-semibold">Start multiplayer game</span> above for live rooms.
+          </p>
           <form onSubmit={loadSharedBoard} className="flex gap-2">
             <input
               aria-label="Board share code"

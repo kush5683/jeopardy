@@ -74,6 +74,7 @@ export function Navbar() {
     { to: "/practice", label: "Practice" },
     ...(user ? [{ to: "/buzzer", label: "Buzzer" }] : []),
     ...(user ? [{ to: "/board", label: "Board" }] : []),
+    ...(user ? [{ to: "/board/multiplayer", label: "Multiplayer" }] : []),
     ...(user ? [{ to: "/final", label: "Final" }] : []),
     ...(user ? [{ to: "/review", label: "Review" }] : []),
     { to: "/flashcards", label: "Flashcards" },

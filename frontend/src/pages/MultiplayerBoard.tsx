@@ -1,0 +1,1102 @@
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { api } from "../api/client";
+import { useAuth } from "../contexts/AuthContext";
+import { TimerBar } from "../components/TimerBar";
+import { RetryPanel } from "../components/RetryPanel";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
+
+type RoundKind = "JEOPARDY" | "DOUBLE_JEOPARDY";
+type RoomStatus = "LOBBY" | "LIVE" | "FINAL" | "COMPLETE" | "ABANDONED";
+
+type Cell = {
+  id: number;
+  question: string;
+  value: number;
+  round: "JEOPARDY" | "DOUBLE_JEOPARDY" | "FINAL_JEOPARDY";
+  category: string;
+  dailyDouble: boolean;
+};
+
+type RoundBoard = {
+  values: number[];
+  categories: { name: string; cells: Array<Cell | null> }[];
+};
+
+type Episode = {
+  date?: string;
+  jeopardy: RoundBoard;
+  doubleJeopardy: RoundBoard;
+  finalJeopardy: Cell | null;
+};
+
+type RoomPhase =
+  | { kind: "LOBBY" }
+  | { kind: "BOARD"; round: RoundKind }
+  | { kind: "READING"; round: RoundKind; clue: Cell; readEndsAt: string }
+  | { kind: "BUZZ_OPEN"; round: RoundKind; clue: Cell; buzzClosesAt: string }
+  | {
+      kind: "DD_WAGER";
+      round: RoundKind;
+      clue: Cell;
+      playerUserId: string;
+      maxWager: number;
+      wagerDeadlineAt: string;
+    }
+  | {
+      kind: "ANSWERING";
+      round: RoundKind;
+      clue: Cell;
+      answeringUserId: string;
+      answerBeganAt: string;
+      answerDeadlineAt: string;
+      wager: number | null;
+      dailyDouble: boolean;
+    }
+  | {
+      kind: "RESULT";
+      round: RoundKind;
+      clue: Cell;
+      result: {
+        answeredByUserId: string | null;
+        submittedAnswer: string;
+        correct: boolean;
+        canonicalAnswer: string;
+        valueDelta: number;
+        llmVerdict: boolean | null;
+        timedOut: boolean;
+        noBuzz: boolean;
+      };
+    }
+  | {
+      kind: "FINAL_WAGER";
+      clue: Cell;
+      eligibleUserIds: string[];
+      wagers: Record<string, number>;
+      startedAt: string;
+      deadlineAt: string;
+    }
+  | {
+      kind: "FINAL_ANSWER";
+      clue: Cell;
+      eligibleUserIds: string[];
+      wagers: Record<string, number>;
+      answers: Record<string, string>;
+      startedAt: string;
+      deadlineAt: string;
+    }
+  | {
+      kind: "COMPLETE";
+      finalResults: Array<{
+        userId: string;
+        submittedAnswer: string;
+        correct: boolean;
+        canonicalAnswer: string;
+        valueDelta: number;
+        wager: number;
+        llmVerdict: boolean | null;
+      }> | null;
+      reason: string | null;
+    }
+  | { kind: "ABANDONED"; reason: string };
+
+type Room = {
+  code: string;
+  status: RoomStatus;
+  hostUserId: string;
+  board: Episode;
+  state: {
+    version: 1;
+    playedClueIds: number[];
+    scores: Record<string, number>;
+    selectorUserId: string | null;
+    phase: RoomPhase;
+    paused: { reason: "HOST_DISCONNECTED"; remainingMs: number | null } | null;
+    hostReconnectDeadlineAt: string | null;
+  };
+  players: Array<{
+    userId: string;
+    displayName: string;
+    seat: number;
+    isHost: boolean;
+    connected: boolean;
+    left: boolean;
+    score: number;
+  }>;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
+type SocketMessage =
+  | { type: "room-state"; room: Room }
+  | { type: "error"; message: string };
+
+const MIN_DD_WAGER = 5;
+
+function normalizeRoomCode(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function formatRoomCode(raw: string): string {
+  return normalizeRoomCode(raw).replace(/(.{3})(?=.)/g, "$1-");
+}
+
+function wsUrl(code: string): string {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/api/multiplayer/ws?code=${encodeURIComponent(code)}`;
+}
+
+function remainingMs(deadlineAt: string): number {
+  return Math.max(0, new Date(deadlineAt).getTime() - Date.now());
+}
+
+function playerName(room: Room, userId: string | null): string {
+  if (!userId) return "Nobody";
+  return room.players.find((player) => player.userId === userId)?.displayName ?? "Unknown";
+}
+
+function currentRound(room: Room): RoundKind | null {
+  switch (room.state.phase.kind) {
+    case "BOARD":
+    case "READING":
+    case "BUZZ_OPEN":
+    case "DD_WAGER":
+    case "ANSWERING":
+    case "RESULT":
+      return room.state.phase.round;
+    default:
+      return null;
+  }
+}
+
+function currentBoard(room: Room): RoundBoard | null {
+  const round = currentRound(room);
+  if (!round) return null;
+  return round === "JEOPARDY" ? room.board.jeopardy : room.board.doubleJeopardy;
+}
+
+function standings(room: Room) {
+  return [...room.players].sort((a, b) => b.score - a.score || a.seat - b.seat);
+}
+
+export function MultiplayerBoard() {
+  useDocumentTitle("Online Multiplayer");
+  const { user } = useAuth();
+  const nav = useNavigate();
+  const { code: codeParam } = useParams();
+  const code = normalizeRoomCode(codeParam ?? "");
+  const [room, setRoom] = useState<Room | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [createBusy, setCreateBusy] = useState<"episode" | "mixed" | null>(null);
+  const [joinBusy, setJoinBusy] = useState(false);
+  const [startBusy, setStartBusy] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+  const [socketState, setSocketState] = useState<
+    "idle" | "connecting" | "reconnecting" | "open" | "closed"
+  >(code ? "connecting" : "idle");
+  const [answerInput, setAnswerInput] = useState("");
+  const [wagerInput, setWagerInput] = useState("");
+  const socketRef = useRef<WebSocket | null>(null);
+
+  const myPlayer = useMemo(
+    () => room?.players.find((player) => player.userId === user?.id) ?? null,
+    [room, user?.id],
+  );
+  const iAmHost = room?.hostUserId === user?.id;
+  const hasBoardControl = room?.state.selectorUserId === user?.id;
+
+  useEffect(() => {
+    setActionError(null);
+    setAnswerInput("");
+    setWagerInput("");
+  }, [room?.state.phase.kind]);
+
+  useEffect(() => {
+    if (!code) {
+      setRoom(null);
+      setLoadError(null);
+      setSocketState("idle");
+      return;
+    }
+    let cancelled = false;
+    setLoadError(null);
+    api
+      .get(`/multiplayer/rooms/${code}`)
+      .then((res) => {
+        if (cancelled) return;
+        setRoom(res.data.room);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        const raw = err?.response?.data?.error;
+        setLoadError(typeof raw === "string" ? raw : "Couldn't load that room.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  useEffect(() => {
+    if (!code || loadError) return;
+    let stopped = false;
+    let reconnectAttempts = 0;
+    let reconnectTimer: number | null = null;
+
+    function connect() {
+      if (stopped) return;
+      const ws = new WebSocket(wsUrl(code));
+      socketRef.current = ws;
+      setSocketState(reconnectAttempts === 0 ? "connecting" : "reconnecting");
+
+      ws.onopen = () => {
+        if (stopped || socketRef.current !== ws) return;
+        reconnectAttempts = 0;
+        setSocketState("open");
+        setActionError(null);
+      };
+      ws.onmessage = (event) => {
+        if (socketRef.current !== ws) return;
+        try {
+          const message = JSON.parse(event.data) as SocketMessage;
+          if (message.type === "room-state") {
+            setRoom(message.room);
+            setLoadError(null);
+          } else if (message.type === "error") {
+            setActionError(message.message);
+          }
+        } catch {
+          setActionError("Received an unreadable room update.");
+        }
+      };
+      ws.onclose = (event) => {
+        if (socketRef.current !== ws) return;
+        socketRef.current = null;
+        if (stopped) return;
+        if (event.code === 1002 || event.code === 1003 || event.code === 1008) {
+          setSocketState("closed");
+          setActionError(
+            (current) =>
+              current ?? (event.reason || "Live room connection was rejected."),
+          );
+          return;
+        }
+
+        reconnectAttempts += 1;
+        setSocketState("reconnecting");
+        const delay = Math.min(1000 * 2 ** Math.min(reconnectAttempts - 1, 4), 10000);
+        reconnectTimer = window.setTimeout(connect, delay);
+      };
+    }
+
+    connect();
+    return () => {
+      stopped = true;
+      if (reconnectTimer != null) {
+        window.clearTimeout(reconnectTimer);
+      }
+      const ws = socketRef.current;
+      if (ws) {
+        socketRef.current = null;
+        ws.close(1000, "leaving room");
+      }
+    };
+  }, [code, loadError]);
+
+  function sendAction(payload: object) {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      setActionError("Live room connection is down. Waiting to reconnect.");
+      return;
+    }
+    socketRef.current.send(JSON.stringify(payload));
+  }
+
+  async function createRoom(source: "episode" | "mixed") {
+    setCreateBusy(source);
+    setActionError(null);
+    try {
+      const { data } = await api.post("/multiplayer/rooms", { source });
+      nav(`/board/multiplayer/${data.room.code}`, { replace: true });
+    } catch (err: any) {
+      const raw = err?.response?.data?.error;
+      setActionError(typeof raw === "string" ? raw : "Couldn't create a room.");
+    } finally {
+      setCreateBusy(null);
+    }
+  }
+
+  async function joinRoom(e: FormEvent) {
+    e.preventDefault();
+    const normalized = normalizeRoomCode(joinCode);
+    if (!normalized || joinBusy) return;
+    setJoinBusy(true);
+    setActionError(null);
+    try {
+      const { data } = await api.post("/multiplayer/join", { code: normalized });
+      nav(`/board/multiplayer/${data.room.code}`, { replace: true });
+    } catch (err: any) {
+      const raw = err?.response?.data?.error;
+      setActionError(typeof raw === "string" ? raw : "Couldn't join that room.");
+    } finally {
+      setJoinBusy(false);
+    }
+  }
+
+  async function startRoom() {
+    if (!room || startBusy) return;
+    setStartBusy(true);
+    setActionError(null);
+    try {
+      await api.post(`/multiplayer/rooms/${room.code}/start`);
+    } catch (err: any) {
+      const raw = err?.response?.data?.error;
+      setActionError(typeof raw === "string" ? raw : "Couldn't start the room.");
+    } finally {
+      setStartBusy(false);
+    }
+  }
+
+  async function leaveRoom() {
+    if (!room || leaveBusy) return;
+    setLeaveBusy(true);
+    setActionError(null);
+    try {
+      await api.post(`/multiplayer/rooms/${room.code}/leave`);
+      nav("/board/multiplayer", { replace: true });
+    } catch (err: any) {
+      const raw = err?.response?.data?.error;
+      setActionError(typeof raw === "string" ? raw : "Couldn't leave the room.");
+      setLeaveBusy(false);
+    }
+  }
+
+  function submitAnswer(e: FormEvent) {
+    e.preventDefault();
+    sendAction({ type: "submit-answer", answer: answerInput });
+    setAnswerInput("");
+  }
+
+  function submitWager(e: FormEvent) {
+    e.preventDefault();
+    const wager = parseInt(wagerInput, 10);
+    if (!Number.isFinite(wager)) {
+      setActionError("Enter a whole-number wager.");
+      return;
+    }
+    sendAction({ type: "submit-wager", wager });
+    setWagerInput("");
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  if (!code) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="text-center space-y-3">
+          <h1 className="font-category text-5xl text-jeopardy-gold">Online Multiplayer</h1>
+          <p className="text-white/75 max-w-2xl mx-auto">
+            Private live rooms for up to 3 total players. Create a room, share
+            the code, and play the same full board in real time.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <button
+            onClick={() => void createRoom("episode")}
+            disabled={createBusy !== null}
+            className="clue-tile p-6 rounded text-left hover:scale-[1.02] transition disabled:opacity-60 disabled:cursor-wait"
+          >
+            <h2 className="font-category text-2xl text-jeopardy-gold">Host real episode</h2>
+            <p className="mt-2 text-sm text-white/80">
+              Random aired board, private room code, live buzz-in play.
+            </p>
+            <p className="mt-4 text-xs text-white/50">
+              {createBusy === "episode" ? "Creating room…" : "Host room"}
+            </p>
+          </button>
+          <button
+            onClick={() => void createRoom("mixed")}
+            disabled={createBusy !== null}
+            className="clue-tile p-6 rounded text-left hover:scale-[1.02] transition disabled:opacity-60 disabled:cursor-wait"
+          >
+            <h2 className="font-category text-2xl text-jeopardy-gold">Host mixed board</h2>
+            <p className="mt-2 text-sm text-white/80">
+              Random categories, live room, same invite-only flow.
+            </p>
+            <p className="mt-4 text-xs text-white/50">
+              {createBusy === "mixed" ? "Creating room…" : "Host room"}
+            </p>
+          </button>
+        </div>
+
+        <div className="max-w-md mx-auto bg-white/5 rounded p-4 space-y-3">
+          <h2 className="font-category text-2xl text-jeopardy-gold text-center">
+            Join with code
+          </h2>
+          <form onSubmit={joinRoom} className="flex gap-2">
+            <input
+              aria-label="Room code"
+              autoComplete="off"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="ABC-123"
+              className="flex-1 px-3 py-3 rounded bg-white/10 uppercase tracking-[0.2em] text-center"
+            />
+            <button
+              type="submit"
+              disabled={joinBusy || normalizeRoomCode(joinCode).length !== 6}
+              className="px-4 py-2 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60 disabled:cursor-wait"
+            >
+              {joinBusy ? "…" : "Join"}
+            </button>
+          </form>
+          {actionError && (
+            <p className="text-sm text-red-300 text-center" role="alert">
+              {actionError}
+            </p>
+          )}
+          <p className="text-xs text-white/50 text-center">
+            Already in a room? Enter the code exactly as the host sent it.
+          </p>
+        </div>
+
+        <div className="text-center">
+          <Link to="/board" className="text-sm text-white/60 underline">
+            Back to single-player board
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError && !room) {
+    return (
+      <RetryPanel
+        onRetry={() => nav(0)}
+        message={loadError}
+      />
+    );
+  }
+
+  if (!room) {
+    return <p className="text-center text-white/60 py-12">Loading room…</p>;
+  }
+
+  const phase = room.state.phase;
+  const board = currentBoard(room);
+  const played = new Set(room.state.playedClueIds);
+  const roomCode = formatRoomCode(room.code);
+  const selector = playerName(room, room.state.selectorUserId);
+  const sortedStandings = standings(room);
+  const paused = room.state.paused;
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="font-category text-4xl text-jeopardy-gold">Online Multiplayer</h1>
+          <p className="text-sm text-white/60">
+            Room code <span className="font-mono tracking-[0.2em]">{roomCode}</span>
+          </p>
+          <p className="text-xs text-white/45">
+            {room.board.date ? `Episode aired ${room.board.date}` : "Mixed board"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={`text-xs px-2 py-1 rounded border ${
+              socketState === "open"
+                ? "border-green-400/40 text-green-200"
+                : socketState === "closed"
+                  ? "border-red-400/40 text-red-200"
+                : "border-yellow-500/40 text-yellow-200"
+            }`}
+          >
+            {socketState === "open"
+              ? "Live connected"
+              : socketState === "closed"
+                ? "Connection lost"
+                : socketState === "reconnecting"
+                  ? "Reconnecting"
+                  : "Connecting"}
+          </span>
+          <button
+            onClick={() => void leaveRoom()}
+            disabled={leaveBusy}
+            className="px-3 py-2 rounded border border-white/30 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-wait"
+          >
+            {leaveBusy
+              ? "Leaving…"
+              : iAmHost && room.status !== "LOBBY"
+                ? "End room"
+                : room.status === "LOBBY"
+                  ? "Leave lobby"
+                  : "Forfeit seat"}
+          </button>
+        </div>
+      </div>
+
+      {actionError && (
+        <p className="text-sm text-red-300" role="alert">
+          {actionError}
+        </p>
+      )}
+      {paused && (
+        <div className="rounded border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+          The host disconnected. Room actions are paused while they reconnect.
+        </div>
+      )}
+
+      <ScoreStrip room={room} meUserId={user.id} />
+
+      {room.status === "LOBBY" && (
+        <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
+          <section className="clue-tile rounded p-6 space-y-4">
+            <h2 className="font-category text-3xl text-jeopardy-gold">Lobby</h2>
+            <p className="text-white/75">
+              Share <span className="font-mono tracking-[0.2em]">{roomCode}</span> with up to{" "}
+              {Math.max(0, 3 - room.players.filter((player) => !player.left).length)} more player
+              {room.players.filter((player) => !player.left).length === 2 ? "" : "s"}.
+            </p>
+            <p className="text-sm text-white/60">
+              The host starts the room. After that, the roster locks and only current players can reconnect.
+            </p>
+            {iAmHost ? (
+              <button
+                onClick={() => void startRoom()}
+                disabled={startBusy}
+                className="px-6 py-3 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60 disabled:cursor-wait"
+              >
+                {startBusy ? "Starting…" : "Start game"}
+              </button>
+            ) : (
+              <p className="text-sm text-white/70">
+                Waiting for <span className="font-semibold">{playerName(room, room.hostUserId)}</span> to start the game.
+              </p>
+            )}
+          </section>
+          <PlayerRoster room={room} />
+        </div>
+      )}
+
+      {(room.status === "LIVE" || room.status === "FINAL") && phase.kind === "BOARD" && board && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="font-category text-3xl text-jeopardy-gold">
+                {phase.round === "DOUBLE_JEOPARDY" ? "Double Jeopardy!" : "Jeopardy!"}
+              </h2>
+              <p className="text-sm text-white/60">
+                Board control: <span className="font-semibold">{selector}</span>
+              </p>
+            </div>
+            <div className="text-sm text-white/70">
+              {hasBoardControl ? "Pick the next clue." : `Waiting for ${selector} to choose.`}
+            </div>
+          </div>
+          <BoardGrid
+            board={board}
+            played={played}
+            selectable={hasBoardControl && !paused}
+            onSelect={(clueId) => sendAction({ type: "select-clue", clueId })}
+          />
+        </div>
+      )}
+
+      {(phase.kind === "READING" ||
+        phase.kind === "BUZZ_OPEN" ||
+        phase.kind === "DD_WAGER" ||
+        phase.kind === "ANSWERING" ||
+        phase.kind === "RESULT" ||
+        phase.kind === "FINAL_WAGER" ||
+        phase.kind === "FINAL_ANSWER" ||
+        phase.kind === "COMPLETE" ||
+        phase.kind === "ABANDONED") && (
+        <div className="grid lg:grid-cols-[1.25fr_0.75fr] gap-4">
+          <section className="space-y-4">
+            {phase.kind === "READING" && (
+              <ClueStage
+                heading="Clue revealed"
+                clue={phase.clue}
+                subtext={`Board control: ${selector}`}
+              >
+                <TimerBar
+                  totalMs={Math.max(1, remainingMs(phase.readEndsAt))}
+                  resetKey={phase.readEndsAt}
+                  paused={Boolean(paused)}
+                  onExpire={() => {}}
+                />
+                <p className="text-sm text-white/70 text-center">
+                  Buzz opens when the read timer ends.
+                </p>
+              </ClueStage>
+            )}
+
+            {phase.kind === "BUZZ_OPEN" && (
+              <ClueStage
+                heading="Buzz window"
+                clue={phase.clue}
+                subtext={`Board control: ${selector}`}
+              >
+                <TimerBar
+                  totalMs={Math.max(1, remainingMs(phase.buzzClosesAt))}
+                  resetKey={phase.buzzClosesAt}
+                  paused={Boolean(paused)}
+                  onExpire={() => {}}
+                />
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => sendAction({ type: "buzz" })}
+                    disabled={Boolean(paused) || myPlayer?.left}
+                    className="px-8 py-4 bg-jeopardy-gold text-black font-bold text-2xl rounded disabled:opacity-60"
+                  >
+                    Buzz
+                  </button>
+                </div>
+              </ClueStage>
+            )}
+
+            {phase.kind === "DD_WAGER" && (
+              <ClueStage
+                heading="Daily Double!"
+                clue={phase.clue}
+                subtext={`${playerName(room, phase.playerUserId)} controls this clue.`}
+              >
+                <TimerBar
+                  totalMs={Math.max(1, remainingMs(phase.wagerDeadlineAt))}
+                  resetKey={phase.wagerDeadlineAt}
+                  paused={Boolean(paused)}
+                  onExpire={() => {}}
+                />
+                {phase.playerUserId === user.id ? (
+                  <form onSubmit={submitWager} className="flex gap-2 max-w-md mx-auto">
+                    <input
+                      autoFocus
+                      aria-label="Daily Double wager"
+                      type="number"
+                      min={MIN_DD_WAGER}
+                      max={phase.maxWager}
+                      value={wagerInput}
+                      onChange={(e) => setWagerInput(e.target.value)}
+                      placeholder={`$${MIN_DD_WAGER} to $${phase.maxWager}`}
+                      className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
+                    />
+                    <button className="px-6 py-2 bg-jeopardy-gold text-black font-semibold rounded">
+                      Lock in
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-center text-sm text-white/70">
+                    Waiting for {playerName(room, phase.playerUserId)} to lock in a wager.
+                  </p>
+                )}
+              </ClueStage>
+            )}
+
+            {phase.kind === "ANSWERING" && (
+              <ClueStage
+                heading={phase.dailyDouble ? "Daily Double answer" : "Answer in"}
+                clue={phase.clue}
+                subtext={`Answering: ${playerName(room, phase.answeringUserId)}`}
+              >
+                <TimerBar
+                  totalMs={Math.max(1, remainingMs(phase.answerDeadlineAt))}
+                  resetKey={phase.answerDeadlineAt}
+                  paused={Boolean(paused)}
+                  onExpire={() => {}}
+                />
+                {phase.answeringUserId === user.id ? (
+                  <form onSubmit={submitAnswer} className="flex gap-2">
+                    <input
+                      autoFocus
+                      aria-label="Your answer"
+                      autoComplete="off"
+                      value={answerInput}
+                      onChange={(e) => setAnswerInput(e.target.value)}
+                      placeholder="What is..."
+                      className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
+                    />
+                    <button className="px-6 py-2 bg-jeopardy-gold text-black font-semibold rounded">
+                      Submit
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-center text-sm text-white/70">
+                    Waiting for {playerName(room, phase.answeringUserId)} to answer.
+                  </p>
+                )}
+              </ClueStage>
+            )}
+
+            {phase.kind === "RESULT" && (
+              <div
+                className={`rounded p-6 text-center ${
+                  phase.result.correct ? "bg-green-700/40" : "bg-red-700/40"
+                }`}
+              >
+                <h2 className="font-category text-3xl text-jeopardy-gold mb-3">
+                  {phase.result.noBuzz
+                    ? "No buzz"
+                    : phase.result.correct
+                      ? "Correct"
+                      : "Incorrect"}
+                </h2>
+                <p className="text-white/70">{phase.clue.question}</p>
+                <p className="mt-3 text-white/90">
+                  Answer: <span className="font-bold">{phase.result.canonicalAnswer}</span>
+                </p>
+                {phase.result.answeredByUserId && (
+                  <p className="mt-2 text-sm text-white/65">
+                    {playerName(room, phase.result.answeredByUserId)} submitted{" "}
+                    <span className="italic">
+                      {phase.result.submittedAnswer || "(blank)"}
+                    </span>
+                  </p>
+                )}
+                <p className="mt-3 text-xl">
+                  {phase.result.valueDelta >= 0 ? "+" : "−"}
+                  <span className="dollar">
+                    ${Math.abs(phase.result.valueDelta).toLocaleString()}
+                  </span>
+                </p>
+                {phase.result.llmVerdict != null && (
+                  <p className="mt-2 text-[10px] text-white/40">
+                    LLM invoked: {phase.result.llmVerdict ? "YES" : "NO"}
+                  </p>
+                )}
+                {iAmHost ? (
+                  <button
+                    onClick={() => sendAction({ type: "advance" })}
+                    disabled={Boolean(paused)}
+                    className="mt-5 px-6 py-2 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60"
+                  >
+                    Advance
+                  </button>
+                ) : (
+                  <p className="mt-4 text-sm text-white/60">Waiting for the host to advance.</p>
+                )}
+              </div>
+            )}
+
+            {phase.kind === "FINAL_WAGER" && (
+              <div className="space-y-4">
+                <div className="category-banner text-center py-3 text-2xl">
+                  {phase.clue.category}
+                </div>
+                <TimerBar
+                  totalMs={Math.max(1, remainingMs(phase.deadlineAt))}
+                  resetKey={phase.deadlineAt}
+                  paused={Boolean(paused)}
+                  onExpire={() => {}}
+                />
+                {phase.eligibleUserIds.includes(user.id) ? (
+                  <form onSubmit={submitWager} className="flex gap-2 max-w-md mx-auto">
+                    <input
+                      autoFocus
+                      aria-label="Final Jeopardy wager"
+                      type="number"
+                      min={0}
+                      max={Math.max(0, myPlayer?.score ?? 0)}
+                      value={wagerInput}
+                      onChange={(e) => setWagerInput(e.target.value)}
+                      placeholder={`0 to ${Math.max(0, myPlayer?.score ?? 0)}`}
+                      className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
+                    />
+                    <button className="px-6 py-2 bg-jeopardy-gold text-black font-semibold rounded">
+                      Wager
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-center text-sm text-white/65">
+                    You did not qualify for Final Jeopardy.
+                  </p>
+                )}
+                <p className="text-center text-sm text-white/60">
+                  {phase.eligibleUserIds.filter((id) => id in phase.wagers).length} of{" "}
+                  {phase.eligibleUserIds.length} eligible players locked in.
+                </p>
+              </div>
+            )}
+
+            {phase.kind === "FINAL_ANSWER" && (
+              <div className="space-y-4">
+                <div className="category-banner text-center py-3 text-2xl">
+                  {phase.clue.category}
+                </div>
+                <div className="clue-tile p-5 sm:p-10 text-center min-h-[40vh] flex items-center justify-center rounded">
+                  <p className="text-3xl sm:text-4xl md:text-6xl leading-tight font-category break-words">
+                    {phase.clue.question}
+                  </p>
+                </div>
+                <TimerBar
+                  totalMs={Math.max(1, remainingMs(phase.deadlineAt))}
+                  resetKey={phase.deadlineAt}
+                  paused={Boolean(paused)}
+                  onExpire={() => {}}
+                />
+                {phase.eligibleUserIds.includes(user.id) ? (
+                  <form onSubmit={submitAnswer} className="flex gap-2">
+                    <input
+                      autoFocus
+                      aria-label="Final answer"
+                      autoComplete="off"
+                      value={answerInput}
+                      onChange={(e) => setAnswerInput(e.target.value)}
+                      placeholder="What is..."
+                      className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
+                    />
+                    <button className="px-6 py-2 bg-jeopardy-gold text-black font-semibold rounded">
+                      Submit
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-center text-sm text-white/60">
+                    Waiting for the finalists to answer.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {phase.kind === "COMPLETE" && (
+              <div className="rounded p-6 bg-white/8 space-y-5">
+                <h2 className="font-category text-4xl text-jeopardy-gold text-center">
+                  Game complete
+                </h2>
+                {phase.reason && (
+                  <p className="text-center text-white/70">{phase.reason}</p>
+                )}
+                <div className="space-y-2">
+                  {sortedStandings.map((player, idx) => (
+                    <div
+                      key={player.userId}
+                      className="flex items-center justify-between rounded bg-white/5 px-4 py-3"
+                    >
+                      <div>
+                        <div className="font-semibold">
+                          {idx + 1}. {player.displayName}
+                        </div>
+                        {player.left && (
+                          <div className="text-xs text-white/45">Left room</div>
+                        )}
+                      </div>
+                      <div className="dollar text-xl">
+                        ${player.score.toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {phase.finalResults && (
+                  <div className="space-y-2">
+                    <h3 className="font-category text-2xl text-jeopardy-gold">
+                      Final Jeopardy recap
+                    </h3>
+                    {phase.finalResults.map((result) => (
+                      <div key={result.userId} className="rounded bg-white/5 px-4 py-3">
+                        <div className="font-semibold">{playerName(room, result.userId)}</div>
+                        <div className="text-sm text-white/70">
+                          Wagered <span className="dollar">${result.wager.toLocaleString()}</span>
+                          {" · "}
+                          {result.submittedAnswer || "(blank)"}
+                        </div>
+                        <div className="text-sm text-white/70">
+                          Answer: <span className="font-semibold">{result.canonicalAnswer}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="text-center">
+                  <Link
+                    to="/board/multiplayer"
+                    className="px-6 py-3 inline-block bg-jeopardy-gold text-black font-semibold rounded"
+                  >
+                    New room
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {phase.kind === "ABANDONED" && (
+              <div className="rounded p-6 bg-red-900/30 border border-red-500/30 text-center space-y-3">
+                <h2 className="font-category text-4xl text-jeopardy-gold">Room closed</h2>
+                <p className="text-white/75">{phase.reason}</p>
+                <Link
+                  to="/board/multiplayer"
+                  className="px-6 py-3 inline-block bg-jeopardy-gold text-black font-semibold rounded"
+                >
+                  Back to multiplayer
+                </Link>
+              </div>
+            )}
+          </section>
+
+          <div className="space-y-4">
+            <PlayerRoster room={room} />
+            {phase.kind === "RESULT" && (
+              <div className="rounded bg-white/5 px-4 py-3 text-sm text-white/70">
+                {hasBoardControl
+                  ? "You control the board."
+                  : `${selector} controls the board.`}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreStrip({ room, meUserId }: { room: Room; meUserId: string }) {
+  return (
+    <div className="grid gap-2 md:grid-cols-3">
+      {room.players.map((player) => (
+        <div
+          key={player.userId}
+          className={`rounded px-4 py-3 border ${
+            player.userId === meUserId
+              ? "border-jeopardy-gold/60 bg-jeopardy-gold/10"
+              : "border-white/10 bg-white/5"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-semibold truncate">
+                {player.displayName}
+                {player.isHost ? " · Host" : ""}
+              </div>
+              <div className="text-xs text-white/45">
+                {player.left ? "Left room" : player.connected ? "Connected" : "Offline"}
+              </div>
+            </div>
+            <div className="dollar text-2xl">${player.score.toLocaleString()}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PlayerRoster({ room }: { room: Room }) {
+  return (
+    <section className="rounded bg-white/5 p-4 space-y-3">
+      <h2 className="font-category text-2xl text-jeopardy-gold">Players</h2>
+      <div className="space-y-2">
+        {room.players
+          .slice()
+          .sort((a, b) => a.seat - b.seat)
+          .map((player) => (
+            <div
+              key={player.userId}
+              className="flex items-center justify-between gap-3 rounded bg-white/5 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="font-semibold truncate">
+                  Seat {player.seat}: {player.displayName}
+                </div>
+                <div className="text-xs text-white/45">
+                  {player.isHost ? "Host · " : ""}
+                  {player.left ? "Left room" : player.connected ? "Connected" : "Offline"}
+                </div>
+              </div>
+              <div className="dollar text-lg">${player.score.toLocaleString()}</div>
+            </div>
+          ))}
+      </div>
+    </section>
+  );
+}
+
+function BoardGrid({
+  board,
+  played,
+  selectable,
+  onSelect,
+}: {
+  board: RoundBoard;
+  played: Set<number>;
+  selectable: boolean;
+  onSelect: (clueId: number) => void;
+}) {
+  return (
+    <div className="grid grid-cols-6 gap-1 max-w-7xl mx-auto">
+      {board.categories.map((cat, ci) => (
+        <div
+          key={ci}
+          className="category-banner py-2 md:py-3 text-center text-[10px] sm:text-sm md:text-base h-full flex items-center justify-center min-h-[60px] sm:min-h-[80px] px-0.5 sm:px-1"
+        >
+          {cat.name}
+        </div>
+      ))}
+      {board.values.map((value, valueIdx) =>
+        board.categories.map((cat, catIdx) => {
+          const cell = cat.cells[valueIdx];
+          if (!cell) {
+            return (
+              <div
+                key={`${valueIdx}-${catIdx}-empty`}
+                className="min-h-[60px] sm:min-h-[80px] rounded bg-white/5 text-center flex items-center justify-center text-white/30 text-xs"
+              >
+                —
+              </div>
+            );
+          }
+          const isPlayed = played.has(cell.id);
+          return (
+            <button
+              key={`${valueIdx}-${catIdx}-${cell.id}`}
+              onClick={() => onSelect(cell.id)}
+              disabled={isPlayed || !selectable}
+              className={`clue-tile min-h-[60px] sm:min-h-[80px] text-center rounded transition ${
+                isPlayed
+                  ? "opacity-20 cursor-default"
+                  : selectable
+                    ? "hover:scale-105"
+                    : "opacity-70 cursor-not-allowed"
+              }`}
+            >
+              <span className="dollar text-lg sm:text-2xl md:text-3xl">
+                {isPlayed ? "" : `$${value}`}
+              </span>
+            </button>
+          );
+        }),
+      )}
+    </div>
+  );
+}
+
+function ClueStage({
+  heading,
+  clue,
+  subtext,
+  children,
+}: {
+  heading: string;
+  clue: Cell;
+  subtext: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="font-category text-3xl text-jeopardy-gold">{heading}</h2>
+          <p className="text-sm text-white/60">{subtext}</p>
+        </div>
+        <div className="text-sm text-white/70">
+          {clue.category} · <span className="dollar">${clue.value}</span>
+        </div>
+      </div>
+      <div className="clue-tile p-5 sm:p-10 text-center min-h-[40vh] flex items-center justify-center rounded">
+        <p className="text-3xl sm:text-4xl md:text-6xl leading-tight font-category break-words">
+          {clue.question}
+        </p>
+      </div>
+      {children}
+    </div>
+  );
+}

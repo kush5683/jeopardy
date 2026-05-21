@@ -105,6 +105,29 @@ DELETE /auth/me
 | `POST` | `/clues/:id/hint/prepare` | no | Kick off background hint generation |
 | `GET` | `/clues/:id/hint` | no | Poll hint status |
 
+## Multiplayer
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/multiplayer/rooms` | yes | Create a private multiplayer lobby |
+| `POST` | `/multiplayer/join` | yes | Join a lobby by room code |
+| `GET` | `/multiplayer/rooms/:code` | yes | Fetch room state for an existing participant |
+| `POST` | `/multiplayer/rooms/:code/start` | yes | Host starts live play from the lobby |
+| `POST` | `/multiplayer/rooms/:code/leave` | yes | Leave the lobby or forfeit/end a live room |
+
+WebSocket:
+
+- `GET ws /multiplayer/ws?code=ABC123`
+- authenticated with the same browser session cookie as the REST API
+- emits authoritative `room-state` snapshots and `error` messages
+
+Room rules:
+
+- room codes are 6 characters from `A-Z` and `2-9`
+- maximum 3 total players per room, including the host
+- joins are only allowed while the room is in `LOBBY`
+- active gameplay actions are sent over the websocket: clue selection, buzzing, wagering, answering, and host advance
+
 ### `GET /clues/random`
 
 Query parameters:

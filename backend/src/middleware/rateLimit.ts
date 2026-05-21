@@ -52,3 +52,21 @@ export const boardShareLimiter = rateLimit({
   keyGenerator: clientIp,
   message: { error: "too many board share requests; slow down" },
 });
+
+export const multiplayerCreateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: "too many room creations; slow down" },
+});
+
+export const multiplayerJoinLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: clientIp,
+  message: { error: "too many room join attempts; slow down" },
+});

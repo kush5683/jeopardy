@@ -79,6 +79,7 @@ Main routes under `frontend/src/pages/`:
 - `Buzzer`
 - `Review`
 - `Board`
+- `MultiplayerBoard`
 - `FinalJeopardy`
 - `Flashcards`
 - `Friends`
@@ -119,6 +120,7 @@ Notable components:
 - `/api/daily`
 - `/api/review`
 - `/api/preferences`
+- `/api/multiplayer`
 
 This separation keeps tests able to import the app without starting a real server.
 It also centralizes baseline response headers and a same-origin guard for
@@ -136,6 +138,7 @@ mutating browser requests.
 - `lib/wikipedia.ts`: article lookup, alias extraction, relevance checks
 - `lib/warmWikiCache.ts`: background fetcher for wiki data
 - `lib/curatedAliases.ts`: hand-maintained canonical aliases for the matcher
+- `multiplayer/service.ts`: room lifecycle, websocket fanout, reconnect handling, and server-authoritative game state
 
 ## Data Model
 
@@ -152,6 +155,7 @@ Key Prisma models:
 | `ReviewSchedule` | spaced-review queue entries for missed clues |
 | `FlashcardDeck` / `Flashcard` / `UserFlashcard` | curated study decks and per-user progress |
 | `Friendship` | pending and accepted friend relationships |
+| `MultiplayerRoom` / `MultiplayerPlayer` | persisted private multiplayer rooms and player seats |
 | `AcceptedLLMVerdict` | persisted positive LLM judge decisions keyed by normalized answer pair |
 
 Enums used across the system:
@@ -248,6 +252,7 @@ Those aliases feed back into the answer matcher.
 - the browser app stores the JWT in an `HttpOnly` same-site cookie scoped to `/api`
 - authenticated routes accept that cookie and can also honor `Authorization: Bearer <token>` for internal tooling
 - optional auth is used where anonymous access still makes sense, such as the global leaderboard or flashcard deck inspection
+- the multiplayer websocket upgrade is authenticated from that same session cookie
 
 ## Rate Limiting
 
