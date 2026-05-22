@@ -30,6 +30,7 @@ All modes share `/api/clues/submit` (logged-in) or `/api/clues/check`
 | Buzzer | `Buzzer.tsx` | Multi-clue session that mimics buzzer timing |
 | Review | `Review.tsx` | SRS — only clues the user previously missed |
 | Board | `Board.tsx` | Full episode: Jeopardy + Double + Final, wagering |
+| MultiplayerBoard | `MultiplayerBoard.tsx` | Private live rooms with shared board state and rebuzzing |
 | FinalJeopardy | `FinalJeopardy.tsx` | Standalone Final-only practice |
 
 ---

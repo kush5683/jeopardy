@@ -128,6 +128,36 @@ Room rules:
 - joins are only allowed while the room is in `LOBBY`
 - active gameplay actions are sent over the websocket: clue selection, buzzing, wagering, answering, and host advance
 
+Client action messages:
+
+```json
+{ "type": "select-clue", "clueId": 123 }
+```
+
+```json
+{ "type": "buzz" }
+```
+
+```json
+{ "type": "submit-answer", "answer": "What is Paris?" }
+```
+
+```json
+{ "type": "submit-wager", "wager": 1200 }
+```
+
+```json
+{ "type": "advance" }
+```
+
+Multiplayer phase notes:
+
+- `READING`, `BUZZ_OPEN`, `DD_WAGER`, `ANSWERING`, `FINAL_WAGER`, and `FINAL_ANSWER` carry server deadlines; clients render timers from those deadlines but the server is authoritative.
+- `BUZZ_OPEN.buzzedUserIds` lists players who are out for the current clue after a wrong or timed-out answer.
+- `BUZZ_OPEN.attempts` carries prior missed attempts for the current clue but does not include the canonical answer.
+- `RESULT.result.canonicalAnswer` is the first regular-clue phase where the correct answer is sent to clients.
+- On non-Daily Double clues, an incorrect or blank answer returns the room to `BUZZ_OPEN` with a fresh `buzzClosesAt` unless every active player has already attempted the clue.
+
 ### `GET /clues/random`
 
 Query parameters:

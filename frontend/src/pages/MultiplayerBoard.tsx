@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
@@ -30,11 +30,27 @@ type Episode = {
   finalJeopardy: Cell | null;
 };
 
+type BuzzAttempt = {
+  userId: string;
+  submittedAnswer: string;
+  correct: boolean;
+  valueDelta: number;
+  llmVerdict: boolean | null;
+  timedOut: boolean;
+};
+
 type RoomPhase =
   | { kind: "LOBBY" }
   | { kind: "BOARD"; round: RoundKind }
   | { kind: "READING"; round: RoundKind; clue: Cell; readEndsAt: string }
-  | { kind: "BUZZ_OPEN"; round: RoundKind; clue: Cell; buzzClosesAt: string }
+  | {
+      kind: "BUZZ_OPEN";
+      round: RoundKind;
+      clue: Cell;
+      buzzClosesAt: string;
+      buzzedUserIds: string[];
+      attempts: BuzzAttempt[];
+    }
   | {
       kind: "DD_WAGER";
       round: RoundKind;
@@ -52,6 +68,8 @@ type RoomPhase =
       answerDeadlineAt: string;
       wager: number | null;
       dailyDouble: boolean;
+      buzzedUserIds: string[];
+      attempts: BuzzAttempt[];
     }
   | {
       kind: "RESULT";
@@ -66,6 +84,7 @@ type RoomPhase =
         llmVerdict: boolean | null;
         timedOut: boolean;
         noBuzz: boolean;
+        attempts: BuzzAttempt[];
       };
     }
   | {
@@ -305,13 +324,48 @@ export function MultiplayerBoard() {
     };
   }, [code, loadError]);
 
-  function sendAction(payload: object) {
+  const buzzOpenPhase = room?.state.phase.kind === "BUZZ_OPEN" ? room.state.phase : null;
+  const iBuzzedThisClue = Boolean(
+    user?.id && buzzOpenPhase?.buzzedUserIds?.includes(user.id),
+  );
+  const canBuzz = Boolean(
+    buzzOpenPhase && !room?.state.paused && !myPlayer?.left && !iBuzzedThisClue,
+  );
+
+  const sendAction = useCallback((payload: object) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       setActionError("Live room connection is down. Waiting to reconnect.");
       return;
     }
     socketRef.current.send(JSON.stringify(payload));
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!canBuzz) return;
+
+    // Spacebar acts like the physical buzzer, but should not steal keyboard
+    // behavior from form fields, buttons, or links that currently have focus.
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.repeat || (event.code !== "Space" && event.key !== " ")) return;
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName;
+      if (
+        target?.isContentEditable ||
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT" ||
+        tagName === "BUTTON" ||
+        tagName === "A"
+      ) {
+        return;
+      }
+      event.preventDefault();
+      sendAction({ type: "buzz" });
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canBuzz, buzzOpenPhase?.buzzClosesAt, sendAction]);
 
   async function createRoom(source: "episode" | "mixed") {
     setCreateBusy(source);
@@ -651,13 +705,20 @@ export function MultiplayerBoard() {
                   paused={Boolean(paused)}
                   onExpire={() => {}}
                 />
+                {(phase.attempts?.length ?? 0) > 0 && (
+                  <p className="text-sm text-white/70 text-center">
+                    {phase.attempts.length} incorrect buzz
+                    {phase.attempts.length === 1 ? "" : "es"} so far.
+                  </p>
+                )}
                 <div className="flex justify-center">
                   <button
                     onClick={() => sendAction({ type: "buzz" })}
-                    disabled={Boolean(paused) || myPlayer?.left}
-                    className="px-8 py-4 bg-jeopardy-gold text-black font-bold text-2xl rounded disabled:opacity-60"
+                    disabled={!canBuzz}
+                    title="Buzz"
+                    className="px-8 py-4 bg-jeopardy-gold text-black font-bold text-2xl rounded disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Buzz
+                    {iBuzzedThisClue ? "Out for clue" : "Buzz"}
                   </button>
                 </div>
               </ClueStage>
@@ -759,6 +820,30 @@ export function MultiplayerBoard() {
                       {phase.result.submittedAnswer || "(blank)"}
                     </span>
                   </p>
+                )}
+                {((phase.result.attempts?.length ?? 0) > 1 ||
+                  (phase.result.noBuzz && (phase.result.attempts?.length ?? 0) > 0)) && (
+                  <div className="mt-4 max-w-md mx-auto space-y-1 text-left text-sm text-white/70">
+                    {phase.result.attempts.map((attempt) => (
+                      <div
+                        key={`${attempt.userId}-${attempt.submittedAnswer}-${attempt.valueDelta}`}
+                        className="flex items-center justify-between gap-3 rounded bg-white/5 px-3 py-2"
+                      >
+                        <span className="truncate">
+                          {playerName(room, attempt.userId)}:{" "}
+                          <span className="italic">
+                            {attempt.submittedAnswer || "(blank)"}
+                          </span>
+                        </span>
+                        <span className={attempt.correct ? "text-green-200" : "text-red-200"}>
+                          {attempt.correct ? "+" : "−"}
+                          <span className="dollar">
+                            ${Math.abs(attempt.valueDelta).toLocaleString()}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
                 <p className="mt-3 text-xl">
                   {phase.result.valueDelta >= 0 ? "+" : "−"}

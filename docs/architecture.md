@@ -140,6 +140,30 @@ mutating browser requests.
 - `lib/curatedAliases.ts`: hand-maintained canonical aliases for the matcher
 - `multiplayer/service.ts`: room lifecycle, websocket fanout, reconnect handling, and server-authoritative game state
 
+### Multiplayer State Model
+
+`backend/src/multiplayer/service.ts` owns multiplayer room transitions. The
+database stores the current room state in `MultiplayerRoom.state`, while an
+in-memory runtime map tracks live websocket clients and scheduled timers.
+
+Regular clues move through:
+
+1. `BOARD`: selector chooses a clue.
+2. `READING`: clue is visible while the read timer runs.
+3. `BUZZ_OPEN`: eligible players can buzz. Players listed in `buzzedUserIds`
+   have already missed and cannot buzz again on that clue.
+4. `ANSWERING`: one player has the answer window.
+5. `RESULT`: the clue is over and the canonical answer is visible.
+
+Wrong or blank regular-clue answers return to `BUZZ_OPEN` with a fresh buzz
+deadline until every active player has attempted the clue. The canonical answer
+is intentionally absent from `READING`, `BUZZ_OPEN`, and `ANSWERING` snapshots;
+it is only sent in `RESULT`.
+
+Daily Doubles skip the shared buzz loop and go from wager collection directly to
+`ANSWERING`. Final Jeopardy uses `FINAL_WAGER` and `FINAL_ANSWER` phases, then
+resolves all eligible answers together.
+
 ## Data Model
 
 Key Prisma models:

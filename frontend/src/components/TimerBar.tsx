@@ -8,10 +8,6 @@ const TICK_MS = 80;
 // Jeopardy clue board's edge lights. Each pair of outermost segments goes dark
 // in sync. Calls onExpire exactly once when the bar empties.
 //
-// `paused` is one-shot: setting it true freezes the bar, but flipping back to
-// false RESETS to totalMs (the effect re-runs and restarts the timer). Callers
-// don't currently round-trip the pause state — change `resetKey` to start a
-// fresh countdown for the next clue.
 export function TimerBar({
   totalMs,
   resetKey,
@@ -23,20 +19,29 @@ export function TimerBar({
   paused?: boolean;
   onExpire: () => void;
 }) {
-  const [timeLeft, setTimeLeft] = useState(totalMs);
+  const safeTotalMs = Math.max(1, totalMs);
+  const [timer, setTimer] = useState({
+    durationMs: safeTotalMs,
+    timeLeftMs: safeTotalMs,
+  });
+  const totalMsRef = useRef(safeTotalMs);
+  totalMsRef.current = safeTotalMs;
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
   const firedRef = useRef(false);
 
   useEffect(() => {
-    setTimeLeft(totalMs);
+    // Callers often pass "remaining time", which changes on unrelated renders.
+    // Only reset the animation when resetKey changes, usually a new deadline.
+    const durationMs = totalMsRef.current;
+    setTimer({ durationMs, timeLeftMs: durationMs });
     firedRef.current = false;
     if (paused) return;
     const startedAt = Date.now();
     const id = setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, totalMs - elapsed);
-      setTimeLeft(remaining);
+      const remaining = Math.max(0, durationMs - elapsed);
+      setTimer({ durationMs, timeLeftMs: remaining });
       if (remaining <= 0 && !firedRef.current) {
         firedRef.current = true;
         clearInterval(id);
@@ -44,9 +49,9 @@ export function TimerBar({
       }
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [resetKey, totalMs, paused]);
+  }, [resetKey, paused]);
 
-  const progress = timeLeft / totalMs;
+  const progress = timer.timeLeftMs / timer.durationMs;
   const pairsOff = Math.min(PAIRS, Math.floor((1 - progress) * PAIRS));
 
   const segments = Array.from({ length: SEGMENTS }, (_, i) => {

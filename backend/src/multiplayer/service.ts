@@ -20,6 +20,17 @@ type PauseState = {
   remainingMs: number | null;
 } | null;
 
+// Safe to broadcast before RESULT: this tracks who missed and how scoring moved,
+// but never includes the canonical answer while the clue is still live.
+type BuzzAttempt = {
+  userId: string;
+  submittedAnswer: string;
+  correct: boolean;
+  valueDelta: number;
+  llmVerdict: boolean | null;
+  timedOut: boolean;
+};
+
 type RoomPhase =
   | { kind: "LOBBY" }
   | { kind: "BOARD"; round: RoundKind }
@@ -29,6 +40,8 @@ type RoomPhase =
       round: RoundKind;
       clue: SharedCell;
       buzzClosesAt: string;
+      buzzedUserIds: string[];
+      attempts: BuzzAttempt[];
     }
   | {
       kind: "DD_WAGER";
@@ -47,6 +60,8 @@ type RoomPhase =
       answerDeadlineAt: string;
       wager: number | null;
       dailyDouble: boolean;
+      buzzedUserIds: string[];
+      attempts: BuzzAttempt[];
     }
   | {
       kind: "RESULT";
@@ -61,6 +76,7 @@ type RoomPhase =
         llmVerdict: boolean | null;
         timedOut: boolean;
         noBuzz: boolean;
+        attempts: BuzzAttempt[];
       };
     }
   | {
@@ -241,6 +257,34 @@ function activePlayers(room: RoomWithPlayers) {
   return room.players
     .filter((player) => !player.leftAt)
     .sort((a, b) => a.seat - b.seat);
+}
+
+function activePlayerUserIds(room: RoomWithPlayers): string[] {
+  return activePlayers(room).map((player) => player.userId);
+}
+
+function uniqueUserIds(userIds: string[]): string[] {
+  return [...new Set(userIds)];
+}
+
+function phaseBuzzedUserIds(
+  phase: Extract<RoomPhase, { kind: "BUZZ_OPEN" | "ANSWERING" }>,
+): string[] {
+  return Array.isArray(phase.buzzedUserIds) ? phase.buzzedUserIds : [];
+}
+
+function phaseBuzzAttempts(
+  phase: Extract<RoomPhase, { kind: "BUZZ_OPEN" | "ANSWERING" }>,
+): BuzzAttempt[] {
+  return Array.isArray(phase.attempts) ? phase.attempts : [];
+}
+
+function allActivePlayersAttempted(
+  room: RoomWithPlayers,
+  buzzedUserIds: string[],
+): boolean {
+  const buzzed = new Set(buzzedUserIds);
+  return activePlayerUserIds(room).every((playerId) => buzzed.has(playerId));
 }
 
 function phaseDeadlineAt(phase: RoomPhase): string | null {
@@ -1053,6 +1097,8 @@ export class MultiplayerService {
               round: state.phase.round,
               clue: state.phase.clue,
               buzzClosesAt: new Date(Date.now() + BUZZ_WINDOW_MS).toISOString(),
+              buzzedUserIds: [],
+              attempts: [],
             },
           };
           break;
@@ -1194,6 +1240,10 @@ export class MultiplayerService {
     if (room.status !== "LIVE" || state.phase.kind !== "BUZZ_OPEN") {
       throw this.httpError(409, "buzzing is not open");
     }
+    const buzzedUserIds = phaseBuzzedUserIds(state.phase);
+    if (buzzedUserIds.includes(userId)) {
+      throw this.httpError(409, "you already buzzed on this clue");
+    }
     return {
       status: "LIVE",
       state: {
@@ -1209,6 +1259,8 @@ export class MultiplayerService {
           ).toISOString(),
           wager: null,
           dailyDouble: false,
+          buzzedUserIds,
+          attempts: phaseBuzzAttempts(state.phase),
         },
       },
     };
@@ -1245,6 +1297,8 @@ export class MultiplayerService {
             ).toISOString(),
             wager,
             dailyDouble: true,
+            buzzedUserIds: [],
+            attempts: [],
           },
         },
       };
@@ -1344,13 +1398,51 @@ export class MultiplayerService {
       mode: "BOARD",
       wager: state.phase.wager,
     });
-    const playedClueIds = state.playedClueIds.includes(state.phase.clue.id)
-      ? state.playedClueIds
-      : [...state.playedClueIds, state.phase.clue.id];
     const scores = {
       ...state.scores,
       [userId]: (state.scores[userId] ?? 0) + verdict.valueDelta,
     };
+    const attempt: BuzzAttempt = {
+      userId,
+      submittedAnswer: answer.trim(),
+      correct: verdict.correct,
+      valueDelta: verdict.valueDelta,
+      llmVerdict: verdict.llmVerdict,
+      timedOut: answer.trim().length === 0,
+    };
+    const attempts = [...phaseBuzzAttempts(state.phase), attempt];
+
+    if (!state.phase.dailyDouble && !verdict.correct) {
+      const buzzedUserIds = uniqueUserIds([
+        ...phaseBuzzedUserIds(state.phase),
+        userId,
+      ]);
+      // Wrong regular-clue attempts keep the clue live for everyone who has
+      // not tried yet. Returning BUZZ_OPEN here also withholds canonicalAnswer.
+      if (!allActivePlayersAttempted(room, buzzedUserIds)) {
+        return {
+          status: "LIVE",
+          state: {
+            ...state,
+            scores,
+            phase: {
+              kind: "BUZZ_OPEN",
+              round: state.phase.round,
+              clue: state.phase.clue,
+              buzzClosesAt: new Date(
+                Date.now() + BUZZ_WINDOW_MS,
+              ).toISOString(),
+              buzzedUserIds,
+              attempts,
+            },
+          },
+        };
+      }
+    }
+
+    const playedClueIds = state.playedClueIds.includes(state.phase.clue.id)
+      ? state.playedClueIds
+      : [...state.playedClueIds, state.phase.clue.id];
     return {
       status: "LIVE",
       state: {
@@ -1371,6 +1463,7 @@ export class MultiplayerService {
             llmVerdict: verdict.llmVerdict,
             timedOut: answer.trim().length === 0,
             noBuzz: false,
+            attempts,
           },
         },
       },
@@ -1483,6 +1576,7 @@ export class MultiplayerService {
         llmVerdict: null,
         timedOut: false,
         noBuzz: true,
+        attempts: phaseBuzzAttempts(state.phase),
       },
     };
     return {

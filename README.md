@@ -18,6 +18,7 @@ Production deployment details are intentionally kept out of source control.
 - Daily challenge with the same 30 clues for everyone each UTC day
 - Buzzer training with lockouts, Coryat scoring, and saved session history
 - Full board play in either real-episode or mixed-category mode, including Daily Doubles and Final Jeopardy
+- Private live multiplayer rooms with server-authoritative board state, rebuzzing after wrong answers, and keyboard buzz-in
 - Spaced review queue built from missed clues
 - Curated flashcard decks plus corpus-derived category decks
 - Friends, leaderboards, and personal stats

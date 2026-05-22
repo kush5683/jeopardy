@@ -171,6 +171,16 @@ Before using it:
 - Browser auth uses an `HttpOnly` same-site cookie; the React auth context bootstraps by calling `/api/auth/me`.
 - A `401` response redirects back to `/login` when appropriate.
 - Practice, Buzzer, and Board persist some in-progress state in `localStorage` to support refresh recovery.
+- `TimerBar` countdowns are keyed by a caller-provided `resetKey`; for server-authoritative timers, pass the phase deadline so ordinary React re-renders do not restart the visual countdown.
+- Multiplayer treats the spacebar as a buzz key only during `BUZZ_OPEN` and only when focus is not inside an interactive control.
+
+## Multiplayer Development Notes
+
+- `backend/src/multiplayer/service.ts` is the source of truth for room state, scoring, and timers.
+- REST endpoints create, join, start, leave, and fetch rooms; active gameplay actions use the websocket.
+- Websocket clients receive full `room-state` snapshots after each accepted action or timer transition.
+- Do not add canonical answers to pre-result multiplayer phases. Regular clues should reveal the answer only in `RESULT`, after a correct response, every active player has missed, or the buzz timer expires.
+- If a multiplayer state transition changes a deadline, call `scheduleRoom` by returning the updated state through the normal action/timer path.
 
 ## Common Gotchas
 

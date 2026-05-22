@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Round } from "@prisma/client";
+import { Prisma, Round } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
+import { multiplayerService } from "../src/multiplayer/service";
 import { newAgent, registerUser, authHeader } from "./helpers";
 
 async function seedEpisodeBoard(date = new Date("2024-01-01T00:00:00.000Z")) {
@@ -53,6 +54,53 @@ async function seedEpisodeBoard(date = new Date("2024-01-01T00:00:00.000Z")) {
       answer: "Final answer",
       airDate: date,
     },
+  });
+}
+
+async function createStartedRoom(playerCount: number) {
+  const agents = Array.from({ length: playerCount }, () => newAgent());
+  const users = await Promise.all(
+    agents.map((agent, idx) =>
+      registerUser(agent, { displayName: `Player ${idx + 1}` }),
+    ),
+  );
+  const created = await agents[0]
+    .post("/api/multiplayer/rooms")
+    .set(authHeader(users[0].token))
+    .send({ source: "episode", date: "2024-01-01" })
+    .expect(200);
+
+  for (let idx = 1; idx < playerCount; idx++) {
+    await agents[idx]
+      .post("/api/multiplayer/join")
+      .set(authHeader(users[idx].token))
+      .send({ code: created.body.room.code })
+      .expect(200);
+  }
+
+  const started = await agents[0]
+    .post(`/api/multiplayer/rooms/${created.body.room.code}/start`)
+    .set(authHeader(users[0].token))
+    .expect(200);
+
+  return { agents, users, room: started.body.room };
+}
+
+async function forceBuzzOpen(room: any, clue: any) {
+  const state = {
+    ...room.state,
+    phase: {
+      kind: "BUZZ_OPEN",
+      round: "JEOPARDY",
+      clue,
+      buzzClosesAt: new Date(Date.now() + 5000).toISOString(),
+      buzzedUserIds: [],
+      attempts: [],
+    },
+  };
+  await prisma.multiplayerRoom.update({
+    where: { code: room.code },
+    data: { state: state as Prisma.InputJsonValue },
   });
 }
 
@@ -168,5 +216,126 @@ describe("multiplayer rooms", () => {
       .set(authHeader(lateToken))
       .send({ code: created.body.room.code })
       .expect(409);
+  });
+
+  it("reopens buzzing after wrong answers and reveals the answer only after everyone misses", async () => {
+    await seedEpisodeBoard();
+    const { users, room } = await createStartedRoom(3);
+    const clue = room.board.jeopardy.categories[0].cells[0];
+    await forceBuzzOpen(room, clue);
+
+    await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "buzz",
+    });
+    const afterFirstWrong = await multiplayerService.handleAction(
+      room.code,
+      users[0].userId,
+      { type: "submit-answer", answer: "wrong" },
+    );
+
+    expect(afterFirstWrong.state.phase.kind).toBe("BUZZ_OPEN");
+    if (afterFirstWrong.state.phase.kind !== "BUZZ_OPEN") {
+      throw new Error("expected buzz to reopen");
+    }
+    expect(afterFirstWrong.state.phase.buzzedUserIds).toEqual([
+      users[0].userId,
+    ]);
+    expect(afterFirstWrong.state.phase.attempts).toHaveLength(1);
+    expect(JSON.stringify(afterFirstWrong.state.phase)).not.toContain(
+      "Answer 1-200",
+    );
+
+    await expect(
+      multiplayerService.handleAction(room.code, users[0].userId, {
+        type: "buzz",
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+
+    await multiplayerService.handleAction(room.code, users[1].userId, {
+      type: "buzz",
+    });
+    const afterSecondWrong = await multiplayerService.handleAction(
+      room.code,
+      users[1].userId,
+      { type: "submit-answer", answer: "also wrong" },
+    );
+
+    expect(afterSecondWrong.state.phase.kind).toBe("BUZZ_OPEN");
+    if (afterSecondWrong.state.phase.kind !== "BUZZ_OPEN") {
+      throw new Error("expected second wrong answer to reopen buzz");
+    }
+    expect(afterSecondWrong.state.phase.buzzedUserIds).toEqual([
+      users[0].userId,
+      users[1].userId,
+    ]);
+    expect(JSON.stringify(afterSecondWrong.state.phase)).not.toContain(
+      "Answer 1-200",
+    );
+
+    await multiplayerService.handleAction(room.code, users[2].userId, {
+      type: "buzz",
+    });
+    const finalResult = await multiplayerService.handleAction(
+      room.code,
+      users[2].userId,
+      { type: "submit-answer", answer: "still wrong" },
+    );
+
+    expect(finalResult.state.phase.kind).toBe("RESULT");
+    if (finalResult.state.phase.kind !== "RESULT") {
+      throw new Error("expected clue to end after every player missed");
+    }
+    expect(finalResult.state.phase.result.correct).toBe(false);
+    expect(finalResult.state.phase.result.canonicalAnswer).toBe("Answer 1-200");
+    expect(finalResult.state.phase.result.attempts).toHaveLength(3);
+    expect(finalResult.state.playedClueIds).toContain(clue.id);
+    expect(finalResult.state.scores[users[0].userId]).toBe(-200);
+    expect(finalResult.state.scores[users[1].userId]).toBe(-200);
+    expect(finalResult.state.scores[users[2].userId]).toBe(-200);
+  });
+
+  it("passes a clue when a reopened buzz timer expires", async () => {
+    await seedEpisodeBoard();
+    const { users, room } = await createStartedRoom(2);
+    const clue = room.board.jeopardy.categories[0].cells[0];
+    await forceBuzzOpen(room, clue);
+
+    await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "buzz",
+    });
+    const afterWrong = await multiplayerService.handleAction(
+      room.code,
+      users[0].userId,
+      { type: "submit-answer", answer: "wrong" },
+    );
+    expect(afterWrong.state.phase.kind).toBe("BUZZ_OPEN");
+    if (afterWrong.state.phase.kind !== "BUZZ_OPEN") {
+      throw new Error("expected buzz to reopen");
+    }
+
+    const expiredState = {
+      ...afterWrong.state,
+      phase: {
+        ...afterWrong.state.phase,
+        buzzClosesAt: new Date(Date.now() - 1).toISOString(),
+      },
+    };
+    const roomRecord = await prisma.multiplayerRoom.update({
+      where: { code: room.code },
+      data: { state: expiredState as Prisma.InputJsonValue },
+      select: { id: true },
+    });
+
+    await (multiplayerService as any).handleTimer(room.code, roomRecord.id);
+    const snapshot = await multiplayerService.getRoom(room.code, users[0].userId);
+
+    expect(snapshot.state.phase.kind).toBe("RESULT");
+    if (snapshot.state.phase.kind !== "RESULT") {
+      throw new Error("expected clue to pass after buzz timer expiry");
+    }
+    expect(snapshot.state.phase.result.noBuzz).toBe(true);
+    expect(snapshot.state.phase.result.canonicalAnswer).toBe("Answer 1-200");
+    expect(snapshot.state.phase.result.attempts).toHaveLength(1);
+    expect(snapshot.state.playedClueIds).toContain(clue.id);
   });
 });

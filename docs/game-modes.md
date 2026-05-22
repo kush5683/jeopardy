@@ -201,8 +201,20 @@ Behavior:
 - other logged-in players join by code before the host starts
 - once started, the roster locks; only original players can reconnect
 - shared server-authoritative board state, scores, and buzz timing
-- first buzz gets the only answer attempt; wrong answers and timeouts close the clue
+- non-Daily Double clues have a read timer, then a 5-second buzz window
+- a player can buzz with the on-screen button or spacebar
+- a buzz opens a 5-second answer window for that player
+- wrong or blank answers subtract the clue value, remove that player from the current clue, reset the buzz timer, and let the remaining players buzz
+- the canonical answer stays hidden until a correct response, all active players miss, or the buzz timer expires with no eligible buzz
+- Daily Doubles are controlled by the selector and do not rebuzz
 - Final Jeopardy collects wagers and answers from all eligible players, then resolves together
+
+Scoring and board control:
+
+- correct regular clues add clue value and move board control to the correct player
+- incorrect regular clue attempts subtract clue value but leave board control unchanged unless a later player answers correctly
+- no-buzz passes score 0 and leaves board control unchanged
+- Final Jeopardy eligibility requires a non-negative score
 
 Primary backend endpoints:
 
