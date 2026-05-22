@@ -25,6 +25,31 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
+update_readme_deploy_time() {
+  local readme="README.md"
+  local timestamp
+  timestamp="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+  if [[ ! -f "$readme" ]]; then
+    echo "⚠ README.md not found; could not record deploy time." >&2
+    return
+  fi
+
+  if grep -q '^Last deploy: ' "$readme"; then
+    local tmp
+    tmp="$(mktemp "${TMPDIR:-/tmp}/jeopardy-readme.XXXXXX")"
+    awk -v timestamp="$timestamp" '
+      /^Last deploy: / && !updated { print "Last deploy: " timestamp; updated=1; next }
+      { print }
+    ' "$readme" > "$tmp"
+    mv "$tmp" "$readme"
+  else
+    printf '\nLast deploy: %s\n' "$timestamp" >> "$readme"
+  fi
+
+  echo "✓ Recorded deploy time in README.md: $timestamp"
+}
+
 echo "→ Ensuring Ollama is running..."
 if curl -fsS http://localhost:11434/api/ps >/dev/null 2>&1; then
   echo "✓ Ollama already running."
@@ -60,6 +85,7 @@ docker compose logs --tail=25 app
 echo
 if docker compose ps app --format '{{.State}}' | grep -q running; then
   echo "✓ Deploy complete — app is running."
+  update_readme_deploy_time
 else
   echo "✗ Deploy finished but container is not running. Check logs above." >&2
   exit 1

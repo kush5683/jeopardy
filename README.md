@@ -2,6 +2,8 @@
 
 Train on real Jeopardy-style clues, drill buzzer timing, run full boards, review missed clues, and study with flashcards.
 
+Last deploy: Not recorded yet.
+
 Production deployment details are intentionally kept out of source control.
 
 ## What This Repo Contains
