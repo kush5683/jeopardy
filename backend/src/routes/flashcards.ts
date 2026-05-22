@@ -22,6 +22,21 @@ const META_CATEGORIES = [
 ];
 const META_SET = new Set(META_CATEGORIES);
 
+/**
+ * Handles the GET /decks route or middleware callback.
+ *
+ * Parameters:
+ * - `_req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 flashcardsRouter.get("/decks", async (_req, res) => {
   const decks = await prisma.flashcardDeck.findMany({
     orderBy: { name: "asc" },
@@ -37,6 +52,23 @@ flashcardsRouter.get("/decks", async (_req, res) => {
   });
 });
 
+/**
+ * Handles the GET /decks/:id route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 flashcardsRouter.get(
   "/decks/:id",
   optionalAuth,
@@ -82,6 +114,23 @@ const reviewSchema = z.object({
   knownLevel: z.number().int().min(0).max(5),
 });
 
+/**
+ * Handles the POST /review route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 flashcardsRouter.post(
   "/review",
   requireAuth,
@@ -116,6 +165,22 @@ flashcardsRouter.post(
 // Each meta-category becomes a "deck" whose cards are random clues drawn from
 // any Category tagged with that meta. Cards aren't persisted as Flashcards,
 // so progress isn't tracked.
+/**
+ * Handles the GET /meta-decks route or middleware callback.
+ *
+ * Parameters:
+ * - `_req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 flashcardsRouter.get("/meta-decks", async (_req, res) => {
   const rows = await prisma.$queryRaw<{ meta: string; count: bigint }[]>`
     SELECT unnest(cat."metaCategories") AS meta,
@@ -134,6 +199,23 @@ flashcardsRouter.get("/meta-decks", async (_req, res) => {
   });
 });
 
+/**
+ * Handles the GET /meta-decks/:name route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{ name: string; }, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 flashcardsRouter.get("/meta-decks/:name", async (req, res) => {
   const name = req.params.name;
   if (!META_SET.has(name)) {

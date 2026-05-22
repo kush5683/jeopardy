@@ -61,6 +61,18 @@ const SYNONYM_LOOKUP: Map<string, string[]> = (() => {
 
 // Normalize a canonical for lookup — same shape as the matcher's normalize
 // but kept here so we don't depend on the matcher's internals.
+/**
+ * Implements the lookup key function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function lookupKey(s: string): string {
   return s
     .normalize("NFD")
@@ -72,6 +84,18 @@ function lookupKey(s: string): string {
     .trim();
 }
 
+/**
+ * Implements the get curated aliases function.
+ *
+ * Parameters:
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 export function getCuratedAliases(canonical: string): string[] {
   const key = lookupKey(canonical);
   const explicit = CURATED_ALIASES[key] ?? [];

@@ -8,11 +8,39 @@ import { api } from "../api/client";
 // Generation was kicked off when the clue was first shown (see Practice.tsx),
 // so by the time this mounts on the result panel the hint is often already
 // cached and the first poll returns immediately.
+/**
+ * Renders the Hint React component.
+ *
+ * Parameters:
+ * - `{ clueId }` (`{ clueId: number }`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Hint({ clueId }: { clueId: number }) {
   const [text, setText] = useState<string | null>(null);
   const [pending, setPending] = useState(true);
   const cancelledRef = useRef(false);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     cancelledRef.current = false;
     setText(null);
@@ -23,6 +51,20 @@ export function Hint({ clueId }: { clueId: number }) {
     const MAX_POLLS = 25; // ~30s ceiling — after that, give up quietly
     let polls = 0;
 
+    /**
+     * Implements the tick function.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+     *
+     * Data transformations:
+     * - Fetches remote/API data and projects the response into local state or return values.
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+     */
     async function tick() {
       if (cancelledRef.current) return;
       try {

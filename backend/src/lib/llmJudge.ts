@@ -25,6 +25,18 @@ const memCache = new Map<string, true>();
 // Only the fetch() is locked — DB/memory cache lookups still run in parallel.
 let llmQueue: Promise<void> = Promise.resolve();
 
+/**
+ * Implements the with llmlock function.
+ *
+ * Parameters:
+ * - `fn` (`() => Promise<T>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<T>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 async function withLLMLock<T>(fn: () => Promise<T>): Promise<T> {
   const prev = llmQueue;
   let release!: () => void;
@@ -39,14 +51,51 @@ async function withLLMLock<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Implements the norm key function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function normKey(s: string): string {
   return s.trim().toLowerCase();
 }
 
+/**
+ * Implements the cache key function.
+ *
+ * Parameters:
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `submitted` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function cacheKey(canonical: string, submitted: string): string {
   return `${normKey(canonical)}::${normKey(submitted)}`;
 }
 
+/**
+ * Implements the set mem cache function.
+ *
+ * Parameters:
+ * - `key` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function setMemCache(key: string): void {
   if (memCache.size >= MEM_CACHE_MAX) {
     const first = memCache.keys().next().value;
@@ -55,6 +104,21 @@ function setMemCache(key: string): void {
   memCache.set(key, true);
 }
 
+/**
+ * Builds prompt data.
+ *
+ * Parameters:
+ * - `clueText` (`string`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `aliases` (`string[]`): Caller-provided value consumed by the function body.
+ * - `submitted` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function buildPrompt(
   clueText: string,
   canonical: string,
@@ -95,6 +159,27 @@ Clue: ${clueText}
 Canonical: ${canonical}${aliasLine} | Contestant: ${submitted} | Verdict:`;
 }
 
+/**
+ * Implements the judge with llm function.
+ *
+ * Parameters:
+ * - `clueText` (`string`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `aliases` (`string[]`): Caller-provided value consumed by the function body.
+ * - `submitted` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<boolean>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 export async function judgeWithLLM(
   clueText: string,
   canonical: string,
@@ -126,6 +211,18 @@ export async function judgeWithLLM(
   }
 
   const controller = new AbortController();
+  /**
+   * Runs the delayed setTimeout timer callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     // Re-check the memory cache *inside* the lock: while we were queued, an
@@ -178,6 +275,26 @@ export async function judgeWithLLM(
 // Returns null on error or if the LLM can't choose, in which case the caller
 // should fall back to its existing first-match behavior. Uses the same lock as
 // judgeWithLLM so wiki picks don't run in parallel with answer judging.
+/**
+ * Implements the pick wiki title with llm function.
+ *
+ * Parameters:
+ * - `clueText` (`string`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `titles` (`string[]`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<number | null>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export async function pickWikiTitleWithLLM(
   clueText: string,
   canonical: string,
@@ -198,6 +315,18 @@ ${numbered}
 Reply with ONLY the number (0-${titles.length - 1}) of the best candidate. No words, no punctuation.`;
 
   const controller = new AbortController();
+  /**
+   * Runs the delayed setTimeout timer callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     return await withLLMLock(async () => {
@@ -232,6 +361,25 @@ Reply with ONLY the number (0-${titles.length - 1}) of the best candidate. No wo
 // LLM mutex so it can't compete with answer judgments for inference slots.
 // Hints get a longer timeout (10s) than judgments since they're computed off the
 // critical path and the user is reading the clue while we generate.
+/**
+ * Implements the generate hint with llm function.
+ *
+ * Parameters:
+ * - `clueText` (`string`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<string | null>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export async function generateHintWithLLM(
   clueText: string,
   canonical: string,
@@ -257,6 +405,18 @@ Clue: "This pope died in 2005" / Answer: John Paul II → NONE
 Your response:`;
 
   const controller = new AbortController();
+  /**
+   * Runs the delayed setTimeout timer callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
     return await withLLMLock(async () => {
@@ -297,6 +457,21 @@ const inFlightHints = new Map<number, Promise<string | null>>();
 // Idempotent and fire-and-forget — returns the in-flight promise so callers can
 // await if they want, but most callers should NOT await (the whole point is to
 // run in the background while the user is reading the clue).
+/**
+ * Implements the prepare hint function.
+ *
+ * Parameters:
+ * - `clueId` (`number`): Identifier value used to look up, compare, or persist related records.
+ * - `clueText` (`string`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `onComplete` (`(hint: string | null) => Promise<void>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<string | null>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function prepareHint(
   clueId: number,
   clueText: string,
@@ -320,6 +495,18 @@ export function prepareHint(
   return job;
 }
 
+/**
+ * Checks the hint in flight condition.
+ *
+ * Parameters:
+ * - `clueId` (`number`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 export function isHintInFlight(clueId: number): boolean {
   return inFlightHints.has(clueId);
 }
@@ -327,9 +514,37 @@ export function isHintInFlight(clueId: number): boolean {
 // Fires a throwaway judge call to force Ollama to load the model into memory.
 // Without this, the first real submission pays a ~15s cold-start hit.
 // Best-effort: errors (Ollama not running, etc.) are swallowed.
+/**
+ * Implements the prewarm llmjudge function.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export async function prewarmLLMJudge(): Promise<void> {
   if (!ENABLED) return;
   const controller = new AbortController();
+  /**
+   * Runs the delayed setTimeout timer callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   const timer = setTimeout(() => controller.abort(), 30_000);
   try {
     await fetch(`${HOST}/api/generate`, {

@@ -24,6 +24,24 @@ type Clue = {
   dailyDouble: boolean;
 };
 
+/**
+ * Renders the Practice React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 export function Practice() {
   useDocumentTitle("Practice");
   const { user } = useAuth();
@@ -55,12 +73,39 @@ export function Practice() {
   const [voiceMode, setVoiceMode] = useState<boolean>(
     () => typeof window !== "undefined" && localStorage.getItem(VOICE_MODE_KEY) === "true",
   );
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     localStorage.setItem(VOICE_MODE_KEY, String(voiceMode));
   }, [voiceMode]);
   const { enabled: ttsMode, setEnabled: setTtsMode } = useTtsMode();
   const tts = useTextToSpeech();
 
+  /**
+   * Implements the next clue function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Tokenizes or pattern-matches strings to derive comparable values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   async function nextClue() {
     setLoading(true);
     setMarkingResponseId(null);
@@ -94,6 +139,18 @@ export function Practice() {
     setLoading(false);
   }
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     nextClue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,13 +159,50 @@ export function Practice() {
   // Fire-and-forget hint kickoff. Server starts (or no-ops if cached/in-flight)
   // and the result panel will poll when needed. Errors are silent — hints are
   // a nice-to-have and must not get in the way of the user's flow.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     if (!clue) return;
     void api.post(`/clues/${clue.id}/hint/prepare`).catch(() => {});
   }, [clue?.id]);
 
   const voice = useVoiceRecognition({
+    /**
+     * Handles the interim event.
+     *
+     * Parameters:
+     * - `text` (`string`): Caller-provided value consumed by the function body.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     */
     onInterim: (text) => setAnswer(text),
+    /**
+     * Handles the final event.
+     *
+     * Parameters:
+     * - `text` (`string`): Caller-provided value consumed by the function body.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     */
     onFinal: (text) => {
       setAnswer(text);
       submitAnswer(text);
@@ -116,8 +210,32 @@ export function Practice() {
   });
 
   // Auto-start voice recognition when a new clue appears and voice mode is on.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     if (!voiceMode || !clue || result || !voice.supported) return;
+    /**
+     * Runs the delayed setTimeout timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     const id = setTimeout(() => voice.start(), 200);
     return () => {
       clearTimeout(id);
@@ -127,6 +245,18 @@ export function Practice() {
   }, [voiceMode, clue?.id, result]);
 
   // Read the clue aloud when TTS is on. Cancel on result/clue-change.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (!ttsMode || !clue || result || !tts.supported) {
       tts.cancel();
@@ -137,8 +267,32 @@ export function Practice() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ttsMode, clue?.id, result]);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (!result || markingResponseId === result.responseId) return;
+    /**
+     * Handles the key event.
+     *
+     * Parameters:
+     * - `e` (`KeyboardEvent`): Browser or React event object read for form, keyboard, or pointer state.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     function onKey(e: KeyboardEvent) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -150,6 +304,21 @@ export function Practice() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nextClue is stable in the result lifetime
   }, [result, markingResponseId]);
 
+  /**
+   * Implements the submit answer function.
+   *
+   * Parameters:
+   * - `text` (`string`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   async function submitAnswer(text: string) {
     if (!clue || result || submitting) return;
     // Clamp to the timer window — Date.now() keeps ticking while the tab is
@@ -199,11 +368,36 @@ export function Practice() {
     }
   }
 
+  /**
+   * Handles the submit event.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     await submitAnswer(answer);
   }
 
+  /**
+   * Handles the timeout workflow.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function handleTimeout() {
     if (!clue || result) return;
     if (user) {
@@ -242,6 +436,19 @@ export function Practice() {
     setStreak(0);
   }
 
+  /**
+   * Implements the mark as got it function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function markAsGotIt() {
     if (!result || !result.responseId) return;
     const responseId = result.responseId;
@@ -261,6 +468,19 @@ export function Practice() {
     }
   }
 
+  /**
+   * Implements the mark as didnt get it function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function markAsDidntGetIt() {
     if (!result || !result.responseId) return;
     const responseId = result.responseId;

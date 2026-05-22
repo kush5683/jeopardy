@@ -26,6 +26,22 @@ type ActiveDeck = {
   cards: Card[];
 };
 
+/**
+ * Renders the Flashcards React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts component state and props into JSX UI output.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Flashcards() {
   useDocumentTitle("Flashcards");
   const { user } = useAuth();
@@ -42,6 +58,20 @@ export function Flashcards() {
   const [decksError, setDecksError] = useState(false);
   const [decksLoading, setDecksLoading] = useState(true);
 
+  /**
+   * Loads decks data.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   function loadDecks() {
     setDecksError(false);
     setDecksLoading(true);
@@ -57,10 +87,34 @@ export function Flashcards() {
       .finally(() => setDecksLoading(false));
   }
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     loadDecks();
   }, []);
 
+  /**
+   * Implements the reset deck state function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function resetDeckState() {
     setIdx(0);
     setFlipped(false);
@@ -68,6 +122,19 @@ export function Flashcards() {
     setDeckComplete(false);
   }
 
+  /**
+   * Implements the open curated deck function.
+   *
+   * Parameters:
+   * - `id` (`number`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function openCuratedDeck(id: number) {
     setLoading(true);
     const { data } = await api.get(`/flashcards/decks/${id}`);
@@ -76,6 +143,19 @@ export function Flashcards() {
     setLoading(false);
   }
 
+  /**
+   * Implements the open meta deck function.
+   *
+   * Parameters:
+   * - `name` (`string`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function openMetaDeck(name: string) {
     setLoading(true);
     const { data } = await api.get(
@@ -86,6 +166,19 @@ export function Flashcards() {
     setLoading(false);
   }
 
+  /**
+   * Implements the rate function.
+   *
+   * Parameters:
+   * - `level` (`number`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function rate(level: number) {
     if (!activeDeck) return;
     const card = activeDeck.cards[idx];
@@ -108,6 +201,18 @@ export function Flashcards() {
     next();
   }
 
+  /**
+   * Implements the next function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function next() {
     if (!activeDeck) return;
     setFlipped(false);
@@ -285,6 +390,18 @@ export function Flashcards() {
   );
 }
 
+/**
+ * Renders the RateButton React component.
+ *
+ * Parameters:
+ * - `{ onClick, label, color }` (`{ onClick: () => void; label: string; color: string; }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function RateButton({
   onClick,
   label,

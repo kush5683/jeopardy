@@ -18,15 +18,51 @@ const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const JWT_ISSUER = "jeopardy-api";
 const JWT_AUDIENCE = "jeopardy-web";
 
+/**
+ * Normalizes ip input.
+ *
+ * Parameters:
+ * - `value` (`string | undefined`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function normalizeIp(value: string | undefined): string {
   if (!value) return "";
   return value.startsWith("::ffff:") ? value.slice(7) : value;
 }
 
+/**
+ * Implements the request host function.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function requestHost(req: Request): string {
   return (req.headers.host ?? "").toLowerCase();
 }
 
+/**
+ * Checks the local host condition.
+ *
+ * Parameters:
+ * - `host` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function isLocalHost(host: string): boolean {
   return (
     host.startsWith("localhost:") ||
@@ -38,6 +74,18 @@ function isLocalHost(host: string): boolean {
   );
 }
 
+/**
+ * Implements the secure cookie enabled function.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function secureCookieEnabled(req: Request): boolean {
   const override = process.env.COOKIE_SECURE;
   if (override === "1") return true;
@@ -45,6 +93,18 @@ function secureCookieEnabled(req: Request): boolean {
   return !isLocalHost(requestHost(req));
 }
 
+/**
+ * Implements the cookie options function.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ *
+ * Output:
+ * - `CookieOptions`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 function cookieOptions(req: Request): CookieOptions {
   return {
     httpOnly: true,
@@ -55,6 +115,21 @@ function cookieOptions(req: Request): CookieOptions {
   };
 }
 
+/**
+ * Implements the read cookie header function.
+ *
+ * Parameters:
+ * - `header` (`string | string[] | undefined`): Caller-provided value consumed by the function body.
+ * - `name` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function readCookieHeader(
   header: string | string[] | undefined,
   name: string,
@@ -75,6 +150,18 @@ function readCookieHeader(
   return null;
 }
 
+/**
+ * Implements the read auth token from headers function.
+ *
+ * Parameters:
+ * - `headers` (`Pick<IncomingHttpHeaders, "authorization" | "cookie">`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 export function readAuthTokenFromHeaders(
   headers: Pick<IncomingHttpHeaders, "authorization" | "cookie">,
 ): string | null {
@@ -85,10 +172,34 @@ export function readAuthTokenFromHeaders(
   return readCookieHeader(headers.cookie, SESSION_COOKIE_NAME);
 }
 
+/**
+ * Implements the token from request function.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function tokenFromRequest(req: Request): string | null {
   return readAuthTokenFromHeaders(req.headers);
 }
 
+/**
+ * Implements the sign token function.
+ *
+ * Parameters:
+ * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 export function signToken(userId: string): string {
   return jwt.sign({ sub: userId }, JWT_SECRET_VALUE, {
     expiresIn: "30d",
@@ -97,10 +208,37 @@ export function signToken(userId: string): string {
   });
 }
 
+/**
+ * Implements the set auth cookie function.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ * - `token` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 export function setAuthCookie(req: Request, res: Response, token: string): void {
   res.cookie(SESSION_COOKIE_NAME, token, cookieOptions(req));
 }
 
+/**
+ * Clears auth cookie state or resources.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 export function clearAuthCookie(req: Request, res: Response): void {
   const opts = cookieOptions(req);
   res.clearCookie(SESSION_COOKIE_NAME, {
@@ -111,6 +249,18 @@ export function clearAuthCookie(req: Request, res: Response): void {
   });
 }
 
+/**
+ * Implements the request is local proxy function.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 export function requestIsLocalProxy(req: Request): boolean {
   if (process.env.TRUST_PROXY_HEADERS === "1") return true;
   if (process.env.TRUST_PROXY_HEADERS === "0") return false;
@@ -126,6 +276,18 @@ export function requestIsLocalProxy(req: Request): boolean {
   );
 }
 
+/**
+ * Implements the verify auth token function.
+ *
+ * Parameters:
+ * - `token` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 export function verifyAuthToken(token: string): string {
   const decoded = jwt.verify(token, JWT_SECRET_VALUE, {
     issuer: JWT_ISSUER,
@@ -134,6 +296,22 @@ export function verifyAuthToken(token: string): string {
   return decoded.sub;
 }
 
+/**
+ * Implements the require auth function.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ * - `next` (`NextFunction`): Express continuation callback for passing control to the next middleware.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function requireAuth(
   req: AuthedRequest,
   res: Response,
@@ -153,6 +331,21 @@ export function requireAuth(
   }
 }
 
+/**
+ * Implements the optional auth function.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `_res` (`Response`): Caller-provided value consumed by the function body.
+ * - `next` (`NextFunction`): Express continuation callback for passing control to the next middleware.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function optionalAuth(
   req: AuthedRequest,
   _res: Response,

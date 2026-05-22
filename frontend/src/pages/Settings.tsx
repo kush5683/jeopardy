@@ -14,6 +14,20 @@ type Me = {
   hasGoogle: boolean;
 };
 
+/**
+ * Renders the Settings React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts component state and props into JSX UI output.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Settings() {
   useDocumentTitle("Settings");
   const { user, logout, replaceUser } = useAuth();
@@ -21,6 +35,19 @@ export function Settings() {
   const [me, setMe] = useState<Me | null>(null);
   const [loadError, setLoadError] = useState(false);
 
+  /**
+   * Loads load data.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   function load() {
     setLoadError(false);
     api
@@ -29,6 +56,18 @@ export function Settings() {
       .catch(() => setLoadError(true));
   }
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     load();
   }, []);
@@ -81,6 +120,20 @@ export function Settings() {
   );
 }
 
+/**
+ * Renders the ProfileSection React component.
+ *
+ * Parameters:
+ * - `{ me, onUpdated }` (`{ me: Me; onUpdated: (m: Me) => void; }`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function ProfileSection({
   me,
   onUpdated,
@@ -94,6 +147,20 @@ function ProfileSection({
     null,
   );
 
+  /**
+   * Handles the submit event.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -149,6 +216,21 @@ function ProfileSection({
   );
 }
 
+/**
+ * Renders the PasswordSection React component.
+ *
+ * Parameters:
+ * - `{ me, onUpdated }` (`{ me: Me; onUpdated: () => void }`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function PasswordSection({ me, onUpdated }: { me: Me; onUpdated: () => void }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -157,6 +239,20 @@ function PasswordSection({ me, onUpdated }: { me: Me; onUpdated: () => void }) {
     null,
   );
 
+  /**
+   * Handles the submit event.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -246,12 +342,40 @@ function PasswordSection({ me, onUpdated }: { me: Me; onUpdated: () => void }) {
   );
 }
 
+/**
+ * Renders the DangerSection React component.
+ *
+ * Parameters:
+ * - `{ onDeleted }` (`{ onDeleted: () => void }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function DangerSection({ onDeleted }: { onDeleted: () => void }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  /**
+   * Handles the delete event.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function onDelete() {
     if (busy || typed !== "DELETE") return;
     setBusy(true);

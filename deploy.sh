@@ -12,6 +12,8 @@ cd "$(dirname "$0")"
 
 BUILD_ARGS=()
 FOLLOW_LOGS=false
+DEPLOY_TIMESTAMP=""
+README_HOSTED_LINE="Hosted at: https://jeopardy.kushshah.net"
 for arg in "$@"; do
   case "$arg" in
     --no-cache) BUILD_ARGS+=(--no-cache) ;;
@@ -25,6 +27,17 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
+# Function: update_readme_deploy_time
+# Parameters:
+#   None.
+# Output:
+#   No return value; updates README.md in place and writes the UTC timestamp into
+#   the global DEPLOY_TIMESTAMP string for later git commit/push handling.
+# Data transformations:
+#   Converts the current UTC time into a stable "YYYY-MM-DD HH:MM:SS UTC"
+#   string, then either replaces the existing "Last deploy:" line with awk or
+#   appends a new line when the marker is absent. Ensures the public hosted URL
+#   stays in README.md without exposing internal deployment details.
 update_readme_deploy_time() {
   local readme="README.md"
   local timestamp
@@ -47,7 +60,63 @@ update_readme_deploy_time() {
     printf '\nLast deploy: %s\n' "$timestamp" >> "$readme"
   fi
 
+  if ! grep -qxF "$README_HOSTED_LINE" "$readme"; then
+    local tmp
+    tmp="$(mktemp "${TMPDIR:-/tmp}/jeopardy-readme.XXXXXX")"
+    awk -v hosted_line="$README_HOSTED_LINE" '
+      /^Last deploy: / && !inserted { print; print hosted_line; inserted=1; next }
+      { print }
+      END { if (!inserted) print hosted_line }
+    ' "$readme" > "$tmp"
+    mv "$tmp" "$readme"
+  fi
+
+  DEPLOY_TIMESTAMP="$timestamp"
   echo "✓ Recorded deploy time in README.md: $timestamp"
+}
+
+# Function: commit_and_push_deploy_time
+# Parameters:
+#   $1 (string): UTC timestamp produced by update_readme_deploy_time; empty
+#   values skip the git commit/push path.
+# Output:
+#   No return value; may create and push a git commit containing README.md when
+#   that file has deploy-time changes.
+# Data transformations:
+#   Treats the timestamp as commit-message text, validates git/worktree
+#   availability, checks whether README.md changed, then stages the file through
+#   git commit's pathspec and pushes the resulting commit.
+commit_and_push_deploy_time() {
+  local readme="README.md"
+  local timestamp="$1"
+
+  if [[ -z "$timestamp" ]]; then
+    echo "⚠ Deploy time was not recorded; skipping commit and push." >&2
+    return
+  fi
+
+  if ! command -v git >/dev/null 2>&1; then
+    echo "⚠ git not found in PATH; deploy time was not committed." >&2
+    return
+  fi
+
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "⚠ Not inside a git work tree; deploy time was not committed." >&2
+    return
+  fi
+
+  if git diff --quiet -- "$readme" && git diff --cached --quiet -- "$readme"; then
+    echo "✓ Deploy time is already committed."
+    return
+  fi
+
+  echo "→ Committing deploy time..."
+  git commit -m "Record deploy time $timestamp" -- "$readme"
+
+  echo "→ Pushing deploy time commit..."
+  git push
+
+  echo "✓ Deploy time commit pushed."
 }
 
 echo "→ Ensuring Ollama is running..."
@@ -86,6 +155,7 @@ echo
 if docker compose ps app --format '{{.State}}' | grep -q running; then
   echo "✓ Deploy complete — app is running."
   update_readme_deploy_time
+  commit_and_push_deploy_time "$DEPLOY_TIMESTAMP"
 else
   echo "✗ Deploy finished but container is not running. Check logs above." >&2
   exit 1

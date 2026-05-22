@@ -7,6 +7,19 @@ const IS_TEST = process.env.NODE_ENV === "test";
 // Only trust forwarding headers when the direct peer is a local/private proxy.
 // If the app is ever exposed directly, a client should not be able to spoof
 // CF-Connecting-IP / X-Forwarded-For and evade rate limits.
+/**
+ * Implements the client ip function.
+ *
+ * Parameters:
+ * - `req` (`Request`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function clientIp(req: Request): string {
   if (requestIsLocalProxy(req)) {
     const cf = req.headers["cf-connecting-ip"];

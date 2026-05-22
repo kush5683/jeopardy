@@ -18,6 +18,18 @@ type Props = {
   onToggle: () => void;
 };
 
+/**
+ * Renders the Dropdown React component.
+ *
+ * Parameters:
+ * - `{ label, items, align, open, onActivate, onDeactivate, onToggle }` (`Props`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 export function Dropdown({
   label,
   items,
@@ -32,18 +44,66 @@ export function Dropdown({
   const location = useLocation();
 
   // Close on route change.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (open) onDeactivate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   // Click-outside + Escape.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (!open) return;
+    /**
+     * Handles the pointer event.
+     *
+     * Parameters:
+     * - `e` (`MouseEvent | TouchEvent`): Browser or React event object read for form, keyboard, or pointer state.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     function onPointer(e: MouseEvent | TouchEvent) {
       if (!wrapRef.current) return;
       if (!wrapRef.current.contains(e.target as Node)) onDeactivate();
     }
+    /**
+     * Handles the key event.
+     *
+     * Parameters:
+     * - `e` (`KeyboardEvent`): Browser or React event object read for form, keyboard, or pointer state.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onDeactivate();
     }

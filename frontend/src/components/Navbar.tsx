@@ -7,6 +7,18 @@ const HOVER_CLOSE_DELAY_MS = 60;
 
 type MenuId = "play" | "compete";
 
+/**
+ * Renders the Navbar React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ */
 export function Navbar() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -15,12 +27,36 @@ export function Navbar() {
   const location = useLocation();
   const nav = useNavigate();
 
+  /**
+   * Handles the logout workflow.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function handleLogout() {
     logout();
     setMobileOpen(false);
     nav("/", { replace: true });
   }
 
+  /**
+   * Clears close timer state or resources.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
@@ -28,6 +64,18 @@ export function Navbar() {
     }
   }, []);
 
+  /**
+   * Implements the activate function.
+   *
+   * Parameters:
+   * - `id` (`MenuId`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   const activate = useCallback(
     (id: MenuId) => {
       clearCloseTimer();
@@ -36,14 +84,50 @@ export function Navbar() {
     [clearCloseTimer],
   );
 
+  /**
+   * Implements the schedule close function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   const scheduleClose = useCallback(() => {
     clearCloseTimer();
+    /**
+     * Runs the delayed setTimeout timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     */
     closeTimerRef.current = setTimeout(
       () => setOpenMenu(null),
       HOVER_CLOSE_DELAY_MS,
     );
   }, [clearCloseTimer]);
 
+  /**
+   * Implements the toggle function.
+   *
+   * Parameters:
+   * - `id` (`MenuId`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   const toggle = useCallback(
     (id: MenuId) => {
       clearCloseTimer();
@@ -52,14 +136,50 @@ export function Navbar() {
     [clearCloseTimer],
   );
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   // Close mobile drawer on navigation.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
   // Lock body scroll when drawer is open.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (!mobileOpen) return;
     const prev = document.body.style.overflow;
@@ -203,6 +323,18 @@ export function Navbar() {
   );
 }
 
+/**
+ * Renders the MobileSection React component.
+ *
+ * Parameters:
+ * - `{ title, items }` (`{ title: string; items: DropdownItem[] }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function MobileSection({ title, items }: { title: string; items: DropdownItem[] }) {
   return (
     <div>

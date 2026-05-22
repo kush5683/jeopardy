@@ -8,11 +8,38 @@ type Wiki = {
   thumb: string | null;
 };
 
+/**
+ * Renders the WikiBlurb React component.
+ *
+ * Parameters:
+ * - `{ clueId }` (`{ clueId: number }`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts component state and props into JSX UI output.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function WikiBlurb({ clueId }: { clueId: number }) {
   const [data, setData] = useState<Wiki | null>(null);
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     let cancelled = false;
     setLoading(true);

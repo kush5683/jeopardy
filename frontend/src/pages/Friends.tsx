@@ -14,6 +14,22 @@ type Pending = {
   outgoing: { id: string; to: PendingPerson; createdAt: string }[];
 };
 
+/**
+ * Renders the Friends React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts component state and props into JSX UI output.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Friends() {
   useDocumentTitle("Friends");
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -26,6 +42,20 @@ export function Friends() {
   const [loadError, setLoadError] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
 
+  /**
+   * Implements the refresh function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function refresh() {
     try {
       const [a, b] = await Promise.all([
@@ -42,10 +72,36 @@ export function Friends() {
     }
   }
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     refresh();
   }, []);
 
+  /**
+   * Implements the send request function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function sendRequest(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -67,16 +123,55 @@ export function Friends() {
     }
   }
 
+  /**
+   * Implements the respond function.
+   *
+   * Parameters:
+   * - `id` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `accept` (`boolean`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   */
   async function respond(id: string, accept: boolean) {
     await api.post(`/friends/respond/${id}`, { accept });
     refresh();
   }
 
+  /**
+   * Checks the cancel outgoing condition.
+   *
+   * Parameters:
+   * - `friendshipId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function cancelOutgoing(friendshipId: string) {
     await api.delete(`/friends/${friendshipId}`).catch(() => {});
     refresh();
   }
 
+  /**
+   * Implements the remove friend function.
+   *
+   * Parameters:
+   * - `friend` (`Friend`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function removeFriend(friend: Friend) {
     const ok = window.confirm(
       `Remove ${friend.displayName} from your friends? You'll both stop seeing each other on the friends leaderboard.`,

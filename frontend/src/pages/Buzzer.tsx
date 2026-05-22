@@ -40,6 +40,21 @@ type SavedRound = {
 
 const BUZZER_SAVE_KEY = "buzzer-round-v1";
 
+/**
+ * Loads saved round data.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `SavedRound | null`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function loadSavedRound(): SavedRound | null {
   try {
     const raw = localStorage.getItem(BUZZER_SAVE_KEY);
@@ -58,6 +73,20 @@ function loadSavedRound(): SavedRound | null {
   return null;
 }
 
+/**
+ * Persists round data.
+ *
+ * Parameters:
+ * - `s` (`SavedRound`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function saveRound(s: SavedRound): void {
   try {
     localStorage.setItem(BUZZER_SAVE_KEY, JSON.stringify(s));
@@ -66,6 +95,19 @@ function saveRound(s: SavedRound): void {
   }
 }
 
+/**
+ * Clears saved round state or resources.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function clearSavedRound(): void {
   try {
     localStorage.removeItem(BUZZER_SAVE_KEY);
@@ -74,6 +116,24 @@ function clearSavedRound(): void {
   }
 }
 
+/**
+ * Renders the Buzzer React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 export function Buzzer() {
   useDocumentTitle("Buzzer");
   const { enabled: enabledMeta } = useMetaCategories();
@@ -86,6 +146,18 @@ export function Buzzer() {
   const [pendingResume, setPendingResume] = useState<SavedRound | null>(null);
   const [markingResponseId, setMarkingResponseId] = useState<string | null>(null);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     setPendingResume(loadSavedRound());
   }, []);
@@ -104,11 +176,36 @@ export function Buzzer() {
   const lockoutsThisClueRef = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  /**
+   * Clears timers state or resources.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function clearTimers() {
     timers.current.forEach((t) => clearTimeout(t));
     timers.current = [];
   }
 
+  /**
+   * Implements the consume active clue function.
+   *
+   * Parameters:
+   * - `clueId` (`number`): Identifier value used to look up, compare, or persist related records.
+   * - `clueIndex` (`number`): Numeric index used to select or order an item in a collection.
+   *
+   * Output:
+   * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function consumeActiveClue(clueId: number, clueIndex: number): boolean {
     const active = activeClueRef.current;
     if (!active || active.id !== clueId || active.index !== clueIndex) return false;
@@ -117,6 +214,20 @@ export function Buzzer() {
     return true;
   }
 
+  /**
+   * Implements the start session function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Tokenizes or pattern-matches strings to derive comparable values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function startSession() {
     // A fresh round invalidates any older save.
     clearSavedRound();
@@ -138,6 +249,18 @@ export function Buzzer() {
     presentClue(roundClues[0], 0, roundClues);
   }
 
+  /**
+   * Implements the resume session function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function resumeSession() {
     if (!pendingResume) return;
     const { sessionId, clues: savedClues, results: savedResults } = pendingResume;
@@ -157,11 +280,40 @@ export function Buzzer() {
     presentClue(savedClues[resumeIdx], resumeIdx, savedClues);
   }
 
+  /**
+   * Implements the discard saved round function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function discardSavedRound() {
     clearSavedRound();
     setPendingResume(null);
   }
 
+  /**
+   * Implements the present clue function.
+   *
+   * Parameters:
+   * - `c` (`Clue`): Caller-provided value consumed by the function body.
+   * - `clueIndex` (`number`): Numeric index used to select or order an item in a collection.
+   * - `roundClues` (`Clue[]`): Clue data read from API or database rows and reshaped for gameplay.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Tokenizes or pattern-matches strings to derive comparable values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function presentClue(c: Clue, clueIndex: number, roundClues: Clue[]) {
     lockoutsThisClueRef.current = 0;
     setAnswer("");
@@ -170,11 +322,36 @@ export function Buzzer() {
     setPhase({ kind: "reading" });
     const wordCount = c.question.split(/\s+/).length;
     const readMs = Math.max(1500, wordCount * READING_RATE_MS_PER_WORD);
+    /**
+     * Runs the delayed setTimeout timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+     */
     timers.current.push(
       setTimeout(() => {
         lightsOnAt.current = Date.now();
         setPhase({ kind: "ready" });
         // If they don't buzz within answer window after lights, mark wrong
+        /**
+         * Runs the delayed setTimeout timer callback.
+         *
+         * Parameters:
+         * - None.
+         *
+         * Output:
+         * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+         *
+         * Data transformations:
+         * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+         */
         timers.current.push(
           setTimeout(() => {
             recordTimeout(c, clueIndex, roundClues);
@@ -184,11 +361,36 @@ export function Buzzer() {
     );
   }
 
+  /**
+   * Implements the buzz function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   function buzz() {
     if (phase.kind === "reading") {
       // Early buzz → lockout
       lockoutsThisClueRef.current += 1;
       setPhase({ kind: "lockedOut" });
+      /**
+       * Runs the delayed setTimeout timer callback.
+       *
+       * Parameters:
+       * - None.
+       *
+       * Output:
+       * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+       *
+       * Data transformations:
+       * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+       */
       timers.current.push(
         setTimeout(() => {
           // Resume — but only if we're still "before the lights"
@@ -209,6 +411,18 @@ export function Buzzer() {
       clearTimers();
       setPhase({ kind: "answering" });
       // Per-show 5s answering window
+      /**
+       * Runs the delayed setTimeout timer callback.
+       *
+       * Parameters:
+       * - None.
+       *
+       * Output:
+       * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+       *
+       * Data transformations:
+       * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+       */
       timers.current.push(
         setTimeout(() => {
           recordTimeout(clue, idx, clues);
@@ -217,6 +431,22 @@ export function Buzzer() {
     }
   }
 
+  /**
+   * Implements the record timeout function.
+   *
+   * Parameters:
+   * - `clue` (`Clue`): Clue data read from API or database rows and reshaped for gameplay.
+   * - `clueIndex` (`number`): Numeric index used to select or order an item in a collection.
+   * - `roundClues` (`Clue[]`): Clue data read from API or database rows and reshaped for gameplay.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function recordTimeout(clue: Clue, clueIndex: number, roundClues: Clue[]) {
     if (!consumeActiveClue(clue.id, clueIndex)) return;
     // Submit an empty answer so the server has a ClueResponse row for this clue
@@ -259,7 +489,31 @@ export function Buzzer() {
     phase.responseId != null &&
     markingResponseId === phase.responseId;
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
+    /**
+     * Handles the key event.
+     *
+     * Parameters:
+     * - `e` (`KeyboardEvent`): Browser or React event object read for form, keyboard, or pointer state.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     function onKey(e: KeyboardEvent) {
       if (e.code === "Space" && (phase.kind === "reading" || phase.kind === "ready")) {
         e.preventDefault();
@@ -275,17 +529,58 @@ export function Buzzer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- buzz/next read latest closure values
   }, [phase, idx, clues, results, resultMarking]);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     return () => clearTimers();
   }, []);
 
   // Kick off hint generation in the background when a clue is shown.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     const c = clues[idx];
     if (!c) return;
     void api.post(`/clues/${c.id}/hint/prepare`).catch(() => {});
   }, [clues, idx]);
 
+  /**
+   * Handles the submit event.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -332,6 +627,20 @@ export function Buzzer() {
     }
   }
 
+  /**
+   * Implements the mark as got it function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function markAsGotIt() {
     if (phase.kind !== "result" || phase.correct || !phase.responseId) return;
     const responseId = phase.responseId;
@@ -355,6 +664,20 @@ export function Buzzer() {
     }
   }
 
+  /**
+   * Implements the mark as didnt get it function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function markAsDidntGetIt() {
     if (phase.kind !== "result" || !phase.correct || !phase.responseId) return;
     const responseId = phase.responseId;
@@ -378,6 +701,18 @@ export function Buzzer() {
     }
   }
 
+  /**
+   * Implements the next function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function next() {
     clearTimers();
     if (idx + 1 >= clues.length) {
@@ -389,6 +724,20 @@ export function Buzzer() {
     presentClue(clues[nextIdx], nextIdx, clues);
   }
 
+  /**
+   * Implements the finish session function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function finishSession() {
     if (sessionIdRef.current) {
       try {
@@ -597,6 +946,18 @@ export function Buzzer() {
   );
 }
 
+/**
+ * Renders the Stat React component.
+ *
+ * Parameters:
+ * - `{ label, value }` (`{ label: string; value: string | number }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="bg-white/5 rounded p-4">

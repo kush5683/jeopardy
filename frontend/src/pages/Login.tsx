@@ -13,12 +13,38 @@ declare global {
 // Only follow returnTo if it's a same-site relative path. Refusing absolute
 // URLs and protocol-relative URLs prevents open-redirect attacks via a crafted
 // link like /login?returnTo=https://evil.example.com.
+/**
+ * Implements the safe return to function.
+ *
+ * Parameters:
+ * - `raw` (`string | null`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function safeReturnTo(raw: string | null): string {
   if (!raw) return "/dashboard";
   if (!raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
   return raw;
 }
 
+/**
+ * Renders the Login React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Login() {
   useDocumentTitle("Log in");
   const { login, loginWithGoogle } = useAuth();
@@ -32,16 +58,55 @@ export function Login() {
   const [busy, setBusy] = useState(false);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     api.get("/auth/config").then((res) => {
       setGoogleClientId(res.data.googleClientId);
     });
   }, []);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     if (!googleClientId || !window.google) return;
     window.google.accounts.id.initialize({
       client_id: googleClientId,
+      /**
+       * Implements the callback function.
+       *
+       * Parameters:
+       * - `response` (`{ credential: string }`): HTTP response writer used to set status codes, headers, and JSON payloads.
+       *
+       * Output:
+       * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+       *
+       * Data transformations:
+       * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+       * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+       */
       callback: async (response: { credential: string }) => {
         try {
           await loginWithGoogle(response.credential);
@@ -59,6 +124,19 @@ export function Login() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot init when GSI loads; callback closes over current props
   }, [googleClientId]);
 
+  /**
+   * Handles the submit event.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;

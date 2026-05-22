@@ -20,6 +20,18 @@ import { Settings } from "./pages/Settings";
 import { NotFound } from "./pages/NotFound";
 import { ReactNode } from "react";
 
+/**
+ * Renders the RequireAuth React component.
+ *
+ * Parameters:
+ * - `{ children }` (`{ children: ReactNode }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Converts component state and props into JSX UI output.
+ */
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -27,6 +39,18 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Renders the App React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 export default function App() {
   return (
     <div className="min-h-full">

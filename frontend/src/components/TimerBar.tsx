@@ -8,6 +8,21 @@ const TICK_MS = 80;
 // Jeopardy clue board's edge lights. Each pair of outermost segments goes dark
 // in sync. Calls onExpire exactly once when the bar empties.
 //
+/**
+ * Renders the TimerBar React component.
+ *
+ * Parameters:
+ * - `{ totalMs, initialTimeLeftMs, resetKey, paused, onExpire }` (`{ totalMs: number; initialTimeLeftMs?: number; resetKey: string | number; paused?: boolean; onExpire: () => void; }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 export function TimerBar({
   totalMs,
   initialTimeLeftMs,
@@ -42,6 +57,20 @@ export function TimerBar({
   onExpireRef.current = onExpire;
   const firedRef = useRef(false);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   useEffect(() => {
     // Only reset the animation when resetKey changes, usually a new deadline.
     const { durationMs, timeLeftMs } = timerConfigRef.current;
@@ -49,6 +78,20 @@ export function TimerBar({
     firedRef.current = false;
     if (paused) return;
     const startedAt = Date.now();
+    /**
+     * Runs the delayed setInterval timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+     * - Computes numeric bounds, random values, or cryptographic tokens.
+     */
     const id = setInterval(() => {
       const elapsed = Date.now() - startedAt;
       const remaining = Math.max(0, timeLeftMs - elapsed);

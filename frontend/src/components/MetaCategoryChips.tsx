@@ -8,17 +8,54 @@ type Props = {
   onChange?: () => void;
 };
 
+/**
+ * Renders the MetaCategoryChips React component.
+ *
+ * Parameters:
+ * - `{ onChange }` (`Props`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 export function MetaCategoryChips({ onChange }: Props) {
   const { disabled, toggle, enableAll } = useMetaCategories();
   const lastOnCount = META_CATEGORIES.length - disabled.length;
   const allOn = disabled.length === 0;
 
+  /**
+   * Handles the toggle workflow.
+   *
+   * Parameters:
+   * - `m` (`MetaCategory`): Caller-provided value consumed by the function body.
+   * - `isLastOn` (`boolean`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function handleToggle(m: MetaCategory, isLastOn: boolean) {
     if (isLastOn) return;
     toggle(m);
     onChange?.();
   }
 
+  /**
+   * Handles the all workflow.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function handleAll() {
     if (allOn) return;
     enableAll();

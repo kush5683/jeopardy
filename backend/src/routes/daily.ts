@@ -13,6 +13,18 @@ import {
 
 export const dailyRouter = Router();
 
+/**
+ * Implements the requested day key function.
+ *
+ * Parameters:
+ * - `value` (`unknown`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function requestedDayKey(value: unknown): string | null {
   if (value != null && normalizeDailyDate(value) === null) return null;
   const dayKey = normalizeDailyDate(value) ?? todayKey();
@@ -20,6 +32,23 @@ function requestedDayKey(value: unknown): string | null {
   return dayKey;
 }
 
+/**
+ * Handles the GET /today route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 dailyRouter.get("/today", async (req, res) => {
   const dayKey = requestedDayKey(req.query.date);
   if (!dayKey) {
@@ -56,6 +85,24 @@ dailyRouter.get("/today", async (req, res) => {
 
 // Server-authoritative: recompute from ClueResponse rows so the client can't
 // post a fake score. The body only chooses the daily date.
+/**
+ * Handles the POST /finish route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 dailyRouter.post("/finish", requireAuth, async (req: AuthedRequest, res) => {
   const dayKey = requestedDayKey(req.body?.date);
   if (!dayKey) {
@@ -110,6 +157,22 @@ dailyRouter.post("/finish", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ attempt });
 });
 
+/**
+ * Handles the GET /leaderboard route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 dailyRouter.get("/leaderboard", async (req, res) => {
   const dateStr = requestedDayKey(req.query.date);
   if (!dateStr) {
@@ -136,6 +199,24 @@ dailyRouter.get("/leaderboard", async (req, res) => {
   });
 });
 
+/**
+ * Handles the GET /me route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 dailyRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const dayKey = requestedDayKey(req.query.date);
   if (!dayKey) {

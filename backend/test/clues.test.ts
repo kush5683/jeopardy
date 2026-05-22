@@ -1,8 +1,34 @@
 import { describe, it, expect } from "vitest";
 import { newAgent, registerUser, seedClue, authHeader } from "./helpers";
 
+/**
+ * Builds shared episode data.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `{ jeopardy: { values: number[]; categories: { name: string; cells: { id: number; question: string; value: number; round: "JEOPARDY" | "DOUBLE_JEOPARDY"; cate...`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function buildSharedEpisode() {
   let nextId = 1;
+  /**
+   * Builds round data.
+   *
+   * Parameters:
+   * - `label` (`string`): Caller-provided value consumed by the function body.
+   * - `round` (`"JEOPARDY" | "DOUBLE_JEOPARDY"`): Caller-provided value consumed by the function body.
+   * - `values` (`number[]`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `{ values: number[]; categories: { name: string; cells: { id: number; question: string; value: number; round: "JEOPARDY" | "DOUBLE_JEOPARDY"; category: string...`: Collection value reshaped from the input data.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   function makeRound(
     label: string,
     round: "JEOPARDY" | "DOUBLE_JEOPARDY",
@@ -48,7 +74,31 @@ function buildSharedEpisode() {
   };
 }
 
+/**
+ * Runs the describe "clues/submit + mark-correct/incorrect" test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 describe("clues/submit + mark-correct/incorrect", () => {
+  /**
+   * Runs the it "scores a correct answer with positive valueDelta" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("scores a correct answer with positive valueDelta", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -72,6 +122,18 @@ describe("clues/submit + mark-correct/incorrect", () => {
     expect(res.body.responseId).toBeTruthy();
   });
 
+  /**
+   * Runs the it "scores an incorrect answer with negative valueDelta + enrolls in review" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("scores an incorrect answer with negative valueDelta + enrolls in review", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -92,6 +154,18 @@ describe("clues/submit + mark-correct/incorrect", () => {
     expect(due.body.total).toBe(1);
   });
 
+  /**
+   * Runs the it "mark-correct flips the score and removes the review schedule" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("mark-correct flips the score and removes the review schedule", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -113,6 +187,18 @@ describe("clues/submit + mark-correct/incorrect", () => {
     expect(stats.body.total).toBe(0);
   });
 
+  /**
+   * Runs the it "applies wager on a Daily Double" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("applies wager on a Daily Double", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -132,6 +218,18 @@ describe("clues/submit + mark-correct/incorrect", () => {
     expect(res.body.valueDelta).toBe(1500);
   });
 
+  /**
+   * Runs the it "allows wager in BOARD mode even on a non-DD clue (mixed-game DDs aren't in the DB)" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("allows wager in BOARD mode even on a non-DD clue (mixed-game DDs aren't in the DB)", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -151,6 +249,18 @@ describe("clues/submit + mark-correct/incorrect", () => {
     expect(res.body.valueDelta).toBe(1200);
   });
 
+  /**
+   * Runs the it "rejects wager on a non-DD clue in non-FINAL mode" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("rejects wager on a non-DD clue in non-FINAL mode", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -168,6 +278,18 @@ describe("clues/submit + mark-correct/incorrect", () => {
       .expect(400);
   });
 
+  /**
+   * Runs the it "404s on missing clue" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("404s on missing clue", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -178,6 +300,18 @@ describe("clues/submit + mark-correct/incorrect", () => {
       .expect(404);
   });
 
+  /**
+   * Runs the it "requires auth on submit" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("requires auth on submit", async () => {
     const agent = newAgent();
     const { clueId } = await seedClue({ answer: "Iowa" });
@@ -188,7 +322,31 @@ describe("clues/submit + mark-correct/incorrect", () => {
   });
 });
 
+/**
+ * Runs the describe "board share codes" test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 describe("board share codes", () => {
+  /**
+   * Runs the it "creates and resolves a shared board" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("creates and resolves a shared board", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -208,6 +366,18 @@ describe("board share codes", () => {
     expect(resolved.body.episode).toEqual(episode);
   });
 
+  /**
+   * Runs the it "requires auth to create a shared board" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("requires auth to create a shared board", async () => {
     const agent = newAgent();
     await agent
@@ -216,6 +386,18 @@ describe("board share codes", () => {
       .expect(401);
   });
 
+  /**
+   * Runs the it "404s on an unknown share code" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("404s on an unknown share code", async () => {
     const agent = newAgent();
     await agent.get("/api/clues/board-share/ABCD-EFGH").expect(404);

@@ -18,6 +18,20 @@ type DeckRow = {
   cards: { front: string; back: string; hint?: string }[];
 };
 
+/**
+ * Implements the main function.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 async function main() {
   console.log("seeding clues...");
   const clues = cluesData as ClueRow[];

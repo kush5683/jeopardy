@@ -38,6 +38,20 @@ const KNOWN_META_CATEGORIES = new Set([
   "Other",
 ]);
 
+/**
+ * Normalizes meta categories input.
+ *
+ * Parameters:
+ * - `raw` (`unknown`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string[] | null`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function parseMetaCategories(raw: unknown): string[] | null {
   if (typeof raw !== "string" || raw.length === 0) return null;
   const parts = raw
@@ -77,10 +91,34 @@ const sharedEpisodeSchema = z.object({
   finalJeopardy: sharedCellSchema.nullable(),
 });
 
+/**
+ * Normalizes share code input.
+ *
+ * Parameters:
+ * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function normalizeShareCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/**
+ * Generates share code data.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function newShareCode(): string {
   const bytes = crypto.randomBytes(SHARE_CODE_LEN);
   let out = "";
@@ -90,6 +128,20 @@ function newShareCode(): string {
   return out;
 }
 
+/**
+ * Builds shared board code data.
+ *
+ * Parameters:
+ * - `createdById` (`string`): Identifier value used to look up, compare, or persist related records.
+ * - `payload` (`z.infer<typeof sharedEpisodeSchema>`): Structured payload validated and projected into the required output shape.
+ *
+ * Output:
+ * - `Promise<string>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 async function createSharedBoardCode(
   createdById: string,
   payload: z.infer<typeof sharedEpisodeSchema>,
@@ -109,6 +161,23 @@ async function createSharedBoardCode(
   throw new Error("failed to allocate shared board code");
 }
 
+/**
+ * Handles the GET /random route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 cluesRouter.get("/random", async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 5), 50);
   const round = req.query.round as keyof typeof Round | undefined;
@@ -181,6 +250,23 @@ cluesRouter.get("/random", async (req, res) => {
 // Weak-category drill — serves clues from the user's worst-performing
 // categories. Requires the user to have answered at least MIN_ATTEMPTS in a
 // category for it to qualify (avoids noise from one-off mistakes).
+/**
+ * Handles the GET /weak route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 cluesRouter.get("/weak", requireAuth, async (req: AuthedRequest, res) => {
   const limit = Math.min(Number(req.query.limit ?? 5), 50);
   const MIN_ATTEMPTS = 3;
@@ -251,6 +337,25 @@ cluesRouter.get("/weak", requireAuth, async (req: AuthedRequest, res) => {
 
 // Returns a real aired Jeopardy episode's clues — guarantees full board
 // coverage (6 categories × 5 values for J! + DJ, plus FJ). Random if no date passed.
+/**
+ * Handles the GET /episode route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.get("/episode", async (req, res) => {
   let dateStr = req.query.date as string | undefined;
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
@@ -279,6 +384,19 @@ cluesRouter.get("/episode", async (req, res) => {
     orderBy: [{ categoryId: "asc" }, { value: "asc" }],
   });
 
+  /**
+   * Builds board data.
+   *
+   * Parameters:
+   * - `roundClues` (`typeof clues`): Clue data read from API or database rows and reshaped for gameplay.
+   *
+   * Output:
+   * - `{ values: number[]; categories: { name: string; cells: { id: number; question: string; answer: any; value: number; round: Round; dailyDouble: boolean; catego...`: Boolean decision value derived from validation, comparison, or state checks.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   */
   function buildBoard(roundClues: typeof clues) {
     const byCat = new Map<
       number,
@@ -345,10 +463,42 @@ cluesRouter.get("/episode", async (req, res) => {
 // Mixed board — 6 random categories per round (each with full value coverage)
 // from anywhere in the corpus, plus a random Final Jeopardy. Daily Doubles are
 // placed randomly since we don't have the real ones.
+/**
+ * Handles the GET /mixed-board route or middleware callback.
+ *
+ * Parameters:
+ * - `_req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 cluesRouter.get("/mixed-board", async (_req, res) => {
   const J_VALUES = [200, 400, 600, 800, 1000];
   const DJ_VALUES = [400, 800, 1200, 1600, 2000];
 
+  /**
+   * Builds round data.
+   *
+   * Parameters:
+   * - `round` (`"JEOPARDY" | "DOUBLE_JEOPARDY"`): Caller-provided value consumed by the function body.
+   * - `values` (`number[]`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<{ values: number[]; categories: { name: string; cells: { id: number; question: string; value: number; round: Round; dailyDouble: boolean; category: s...`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   */
   async function buildRound(round: "JEOPARDY" | "DOUBLE_JEOPARDY", values: number[]) {
     // Pick 6 random categories that have clues at every value tier for this round.
     const rows = await prisma.$queryRaw<{ categoryId: number }[]>`
@@ -435,6 +585,20 @@ cluesRouter.get("/mixed-board", async (_req, res) => {
   // Clear DD flags inherited from clues' original airings, then sprinkle fresh:
   // 1 DD in J! round, 2 in DJ. Each subsequent DD avoids categories already
   // used by an earlier DD — keeps the placements distributed across the board.
+  /**
+   * Implements the sprinkle dds function.
+   *
+   * Parameters:
+   * - `board` (`typeof jeopardy`): Caller-provided value consumed by the function body.
+   * - `count` (`number`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function sprinkleDDs(board: typeof jeopardy, count: number) {
     let cells: { catIdx: number; cellIdx: number }[] = [];
     board.categories.forEach((cat, ci) => {
@@ -475,6 +639,21 @@ const boardShareCreateSchema = z.object({
   episode: sharedEpisodeSchema,
 });
 
+/**
+ * Handles the POST /board-share route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.post(
   "/board-share",
   boardShareLimiter,
@@ -490,6 +669,23 @@ cluesRouter.post(
   },
 );
 
+/**
+ * Handles the GET /board-share/:code route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.get("/board-share/:code", boardShareLimiter, async (req, res) => {
   const code = normalizeShareCode(req.params.code);
   if (!new RegExp(`^[${SHARE_CODE_ALPHABET}]{${SHARE_CODE_LEN}}$`).test(code)) {
@@ -512,6 +708,20 @@ cluesRouter.get("/board-share/:code", boardShareLimiter, async (req, res) => {
   res.json({ episode: payload.data });
 });
 
+/**
+ * Handles the GET /categories route or middleware callback.
+ *
+ * Parameters:
+ * - `_req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 cluesRouter.get("/categories", async (_req, res) => {
   const cats = await prisma.category.findMany({
     orderBy: { name: "asc" },
@@ -547,6 +757,20 @@ const NUM_WORDS: Record<string, string> = {
   sixties: "60s", seventies: "70s", eighties: "80s", nineties: "90s",
 };
 
+/**
+ * Normalizes normalize input.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function normalize(s: string): string {
   const base = s
     .normalize("NFD")
@@ -568,6 +792,19 @@ function normalize(s: string): string {
 // "hang" ↔ "hanging", "run" ↔ "running", "marry" ↔ "married" align in the
 // phrase matcher. Conservative — only fires on obvious inflections of words
 // at least 3 chars long.
+/**
+ * Checks the inflection condition.
+ *
+ * Parameters:
+ * - `a` (`string`): Caller-provided value consumed by the function body.
+ * - `b` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function isInflection(a: string, b: string): boolean {
   if (a === b) return true;
   const [s, l] = a.length <= b.length ? [a, b] : [b, a];
@@ -599,6 +836,19 @@ const STOPWORDS = new Set([
 ]);
 
 // Damerau-Levenshtein: counts adjacent-letter transpositions ("teh"→"the") as distance 1.
+/**
+ * Implements the edit distance function.
+ *
+ * Parameters:
+ * - `a` (`string`): Caller-provided value consumed by the function body.
+ * - `b` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function editDistance(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;
@@ -630,16 +880,56 @@ function editDistance(a: string, b: string): number {
 // in submitted that fuzzy-matches (and vice versa). Bidirectional + content-only,
 // so "anne cleves" matches "anne of cleves" (drops "of"), but "white men can jump"
 // does NOT match "white men cant jump" — "cant" (4-char) requires exact match.
+/**
+ * Implements the phrase words align function.
+ *
+ * Parameters:
+ * - `a` (`string`): Caller-provided value consumed by the function body.
+ * - `b` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function phraseWordsAlign(a: string, b: string): boolean {
   const aWords = a.split(" ").filter(Boolean);
   const bWords = b.split(" ").filter(Boolean);
   if (aWords.length === 0 || bWords.length === 0) return false;
   // Threshold for individual words: stricter than the whole-phrase version.
   // 1-4 chars → exact required; 5+ chars → standard fuzzy.
+  /**
+   * Implements the word t function.
+   *
+   * Parameters:
+   * - `len` (`number`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `number`: Numeric value calculated from inputs, state, or persisted data.
+   *
+   * Data transformations:
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function wordT(len: number): number {
     if (len <= 4) return 0;
     return Math.max(1, Math.floor(len / 5));
   }
+  /**
+   * Checks the has condition.
+   *
+   * Parameters:
+   * - `w` (`string`): Caller-provided value consumed by the function body.
+   * - `candidates` (`string[]`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   function has(w: string, candidates: string[]): boolean {
     const t = wordT(w.length);
     return candidates.some(
@@ -655,6 +945,19 @@ function phraseWordsAlign(a: string, b: string): boolean {
   );
 }
 
+/**
+ * Implements the contains as phrase function.
+ *
+ * Parameters:
+ * - `haystack` (`string`): Caller-provided value consumed by the function body.
+ * - `needle` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function containsAsPhrase(haystack: string, needle: string): boolean {
   if (haystack === needle) return true;
   // After normalize(), both strings are single-space-separated tokens.
@@ -663,6 +966,18 @@ function containsAsPhrase(haystack: string, needle: string): boolean {
   return h.includes(n);
 }
 
+/**
+ * Implements the fuzzy threshold function.
+ *
+ * Parameters:
+ * - `len` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function fuzzyThreshold(len: number): number {
   // For very short strings, any "1 edit" is too lenient — "AC" vs "DC" is 1 edit
   // but they mean opposite things. Require exact match below 4 chars.
@@ -670,6 +985,19 @@ function fuzzyThreshold(len: number): number {
   return Math.max(1, Math.floor(len / 5));
 }
 
+/**
+ * Implements the important words function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function importantWords(s: string): string[] {
   return s
     .split(" ")
@@ -684,6 +1012,22 @@ const MULTI_OPTION_SKIP = new Set([
 // distinct options from the list, and every non-stopword token they provide
 // must match one of the listed options (no extras allowed).
 // Returns true/false if the pattern applies; null otherwise (caller falls back).
+/**
+ * Implements the try multi option function.
+ *
+ * Parameters:
+ * - `submittedRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ * - `canonicalRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `boolean | null`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function tryMultiOption(submittedRaw: string, canonicalRaw: string): boolean | null {
   const m = canonicalRaw.match(/^\s*\(?\s*(\d+)\s+of\)?\s+(.*)$/i);
   if (!m) return null;
@@ -746,6 +1090,22 @@ function tryMultiOption(submittedRaw: string, canonicalRaw: string): boolean | n
 // Handles canonicals like "Tajikistan & Turkmenistan" or "Lewis & Clark" — every
 // part listed must be supplied by the user (order-independent). Doesn't fire on
 // "AT&T" / "M&M" style names (no spaces around the ampersand).
+/**
+ * Implements the try ampersand list function.
+ *
+ * Parameters:
+ * - `submittedRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ * - `canonicalRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `boolean | null`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function tryAmpersandList(submittedRaw: string, canonicalRaw: string): boolean | null {
   if (!/\s+&\s+/.test(canonicalRaw)) return null;
   const parts = canonicalRaw.split(/\s+&\s+/).map((s) => s.trim()).filter(Boolean);
@@ -797,6 +1157,19 @@ function tryAmpersandList(submittedRaw: string, canonicalRaw: string): boolean |
   return matched >= parts.length && unmatched === 0;
 }
 
+/**
+ * Implements the extract parentheticals function.
+ *
+ * Parameters:
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function extractParentheticals(canonical: string): string[] {
   const out: string[] = [];
   const re = /\(([^)]+)\)/g;
@@ -820,6 +1193,19 @@ const DECADE_WORD_BY_TENS: Record<string, string> = {
 // century-agnostic: "1890s" also yields "nineties" as an alias, which means a
 // canonical of "1890s" will accept a user guess of "nineties" — accepted as a
 // pragmatic trade-off since the clue text disambiguates the century.
+/**
+ * Implements the decade aliases of function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function decadeAliasesOf(s: string): string[] {
   const re = /\b[12]\d([2-9])0'?s\b/i;
   if (!re.test(s)) return [];
@@ -831,6 +1217,20 @@ function decadeAliasesOf(s: string): string[] {
   return [short, word];
 }
 
+/**
+ * Checks the correct condition.
+ *
+ * Parameters:
+ * - `submitted` (`string`): Caller-provided value consumed by the function body.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `aliases` (`string[]`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 export function isCorrect(submitted: string, canonical: string, aliases: string[] = []): boolean {
   if (matchAgainst(submitted, canonical)) return true;
   // Canonicals like "alternating current (AC)" explicitly list an abbreviation in parens.
@@ -866,6 +1266,22 @@ export function isCorrect(submitted: string, canonical: string, aliases: string[
   return false;
 }
 
+/**
+ * Implements the match against function.
+ *
+ * Parameters:
+ * - `submitted` (`string`): Caller-provided value consumed by the function body.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function matchAgainst(submitted: string, canonical: string): boolean {
   // "(N of) A, B or C" pattern only applies to the original canonical;
   // aliases won't carry this prefix, but tryMultiOption returns null for them
@@ -989,6 +1405,22 @@ function matchAgainst(submitted: string, canonical: string): boolean {
   return false;
 }
 
+/**
+ * Handles the POST /submit route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.post("/submit", submitLimiter, requireAuth, async (req: AuthedRequest, res) => {
   const parsed = submitSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -1068,6 +1500,22 @@ const checkSchema = z.object({
   answer: z.string(),
 });
 
+/**
+ * Handles the POST /check route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.post("/check", submitLimiter, async (req, res) => {
   const parsed = checkSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -1089,6 +1537,21 @@ cluesRouter.post("/check", submitLimiter, async (req, res) => {
   res.json({ correct, canonicalAnswer: clue.answer, value: clue.value, llmVerdict });
 });
 
+/**
+ * Handles the POST /mark-correct/:responseId route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.post("/mark-correct/:responseId", requireAuth, async (req: AuthedRequest, res) => {
   const responseId = req.params.responseId;
   const response = await prisma.clueResponse.findUnique({ where: { id: responseId } });
@@ -1114,6 +1577,21 @@ cluesRouter.post("/mark-correct/:responseId", requireAuth, async (req: AuthedReq
   });
 });
 
+/**
+ * Handles the POST /mark-incorrect/:responseId route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.post("/mark-incorrect/:responseId", requireAuth, async (req: AuthedRequest, res) => {
   const responseId = req.params.responseId;
   const response = await prisma.clueResponse.findUnique({ where: { id: responseId } });
@@ -1137,6 +1615,22 @@ cluesRouter.post("/mark-incorrect/:responseId", requireAuth, async (req: AuthedR
   });
 });
 
+/**
+ * Handles the GET /:id/wiki route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{ id: string; }, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.get("/:id/wiki", async (req, res) => {
   const clueId = Number(req.params.id);
   if (!Number.isFinite(clueId)) {
@@ -1190,6 +1684,22 @@ cluesRouter.get("/:id/wiki", async (req, res) => {
 // a clue is first shown so the hint is ready (or in progress) by the time the
 // user finishes answering. Idempotent: returns 202 immediately whether the hint
 // is already cached, currently being generated, or freshly started.
+/**
+ * Handles the POST /:id/hint/prepare route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{ id: string; }, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.post("/:id/hint/prepare", async (req, res) => {
   const clueId = parseInt(req.params.id, 10);
   if (!Number.isFinite(clueId)) {
@@ -1219,6 +1729,21 @@ cluesRouter.post("/:id/hint/prepare", async (req, res) => {
 
 // Returns the current state of a clue's hint. Used by the result panel to
 // auto-show the hint when ready, or poll while it's still generating.
+/**
+ * Handles the GET /:id/hint route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{ id: string; }, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 cluesRouter.get("/:id/hint", async (req, res) => {
   const clueId = parseInt(req.params.id, 10);
   if (!Number.isFinite(clueId)) {

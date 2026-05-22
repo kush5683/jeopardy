@@ -4,6 +4,18 @@ import { prisma } from "../src/lib/prisma";
 import { multiplayerService } from "../src/multiplayer/service";
 import { newAgent, registerUser, authHeader } from "./helpers";
 
+/**
+ * Implements the seed episode board function.
+ *
+ * Parameters:
+ * - `date` (`Date`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 async function seedEpisodeBoard(date = new Date("2024-01-01T00:00:00.000Z")) {
   const jeopardyValues = [200, 400, 600, 800, 1000];
   const doubleValues = [400, 800, 1200, 1600, 2000];
@@ -57,6 +69,18 @@ async function seedEpisodeBoard(date = new Date("2024-01-01T00:00:00.000Z")) {
   });
 }
 
+/**
+ * Builds started room data.
+ *
+ * Parameters:
+ * - `playerCount` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<{ agents: TestAgent<Test>[]; users: { token: string; userId: string; email: string; cookies: string[]; }[]; room: any; }>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 async function createStartedRoom(playerCount: number) {
   const agents = Array.from({ length: playerCount }, () => newAgent());
   const users = await Promise.all(
@@ -86,6 +110,20 @@ async function createStartedRoom(playerCount: number) {
   return { agents, users, room: started.body.room };
 }
 
+/**
+ * Implements the force buzz open function.
+ *
+ * Parameters:
+ * - `room` (`any`): Caller-provided value consumed by the function body.
+ * - `clue` (`any`): Clue data read from API or database rows and reshaped for gameplay.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 async function forceBuzzOpen(room: any, clue: any) {
   const state = {
     ...room.state,
@@ -104,6 +142,21 @@ async function forceBuzzOpen(room: any, clue: any) {
   });
 }
 
+/**
+ * Implements the force final wager function.
+ *
+ * Parameters:
+ * - `room` (`any`): Caller-provided value consumed by the function body.
+ * - `userIds` (`string[]`): Identifier value used to look up, compare, or persist related records.
+ * - `scores` (`Record<string, number>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 async function forceFinalWager(room: any, userIds: string[], scores: Record<string, number>) {
   const state = {
     ...room.state,
@@ -126,6 +179,21 @@ async function forceFinalWager(room: any, userIds: string[], scores: Record<stri
   });
 }
 
+/**
+ * Implements the force daily double wager function.
+ *
+ * Parameters:
+ * - `room` (`any`): Caller-provided value consumed by the function body.
+ * - `clue` (`any`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `playerUserId` (`string`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 async function forceDailyDoubleWager(room: any, clue: any, playerUserId: string) {
   const state = {
     ...room.state,
@@ -144,7 +212,35 @@ async function forceDailyDoubleWager(room: any, clue: any, playerUserId: string)
   });
 }
 
+/**
+ * Runs the describe "multiplayer rooms" test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 describe("multiplayer rooms", () => {
+  /**
+   * Runs the it "creates a lobby and joins by code" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   it("creates a lobby and joins by code", async () => {
     await seedEpisodeBoard();
     const hostAgent = newAgent();
@@ -179,6 +275,18 @@ describe("multiplayer rooms", () => {
     ).toBe(true);
   });
 
+  /**
+   * Runs the it "puts joins after the first 3 seats in the audience" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   it("puts joins after the first 3 seats in the audience", async () => {
     await seedEpisodeBoard();
     const agents = [newAgent(), newAgent(), newAgent(), newAgent()];
@@ -216,6 +324,18 @@ describe("multiplayer rooms", () => {
     expect(joinedAudience.seat).toBeGreaterThan(3);
   });
 
+  /**
+   * Runs the it "only lets the host start, and puts late joins after start in the audience" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   it("only lets the host start, and puts late joins after start in the audience", async () => {
     await seedEpisodeBoard();
     const hostAgent = newAgent();
@@ -269,6 +389,19 @@ describe("multiplayer rooms", () => {
     expect(lateMember.role).toBe("AUDIENCE");
   });
 
+  /**
+   * Runs the it "reopens buzzing after wrong answers and reveals the answer only after everyone misses" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   it("reopens buzzing after wrong answers and reveals the answer only after everyone misses", async () => {
     await seedEpisodeBoard();
     const { users, room } = await createStartedRoom(3);
@@ -345,6 +478,20 @@ describe("multiplayer rooms", () => {
     expect(finalResult.state.scores[users[2].userId]).toBe(-200);
   });
 
+  /**
+   * Runs the it "passes a clue when a reopened buzz timer expires" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   it("passes a clue when a reopened buzz timer expires", async () => {
     await seedEpisodeBoard();
     const { users, room } = await createStartedRoom(2);
@@ -390,6 +537,20 @@ describe("multiplayer rooms", () => {
     expect(snapshot.state.playedClueIds).toContain(clue.id);
   });
 
+  /**
+   * Runs the it "lets the buzzed player advance a revealed result after the read delay" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   it("lets the buzzed player advance a revealed result after the read delay", async () => {
     await seedEpisodeBoard();
     const { users, room } = await createStartedRoom(2);
@@ -449,6 +610,18 @@ describe("multiplayer rooms", () => {
     expect(advanced.state.selectorUserId).toBe(users[1].userId);
   });
 
+  /**
+   * Runs the it "shows regular answer drafts only to the audience" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   it("shows regular answer drafts only to the audience", async () => {
     await seedEpisodeBoard();
     const { users, room } = await createStartedRoom(3);
@@ -488,6 +661,18 @@ describe("multiplayer rooms", () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
+  /**
+   * Runs the it "shows Daily Double wager drafts to players and audience" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   it("shows Daily Double wager drafts to players and audience", async () => {
     await seedEpisodeBoard();
     const { users, room } = await createStartedRoom(3);
@@ -520,6 +705,19 @@ describe("multiplayer rooms", () => {
     expect(audienceView.state.phase.wagerDraft).toBe("1234");
   });
 
+  /**
+   * Runs the it "keeps Final wagers and answers private until the reveal" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   it("keeps Final wagers and answers private until the reveal", async () => {
     await seedEpisodeBoard();
     const { users, room } = await createStartedRoom(3);

@@ -136,9 +136,33 @@ const cases: Case[] = [
   { submitted: "Attorney General", canonical: "Attorney General Tso's chicken scratch", expected: false, why: "another fragment of the same compound canonical" },
 ];
 
+/**
+ * Runs the describe "isCorrect — fuzzy answer matcher" test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 describe("isCorrect — fuzzy answer matcher", () => {
   for (const c of cases) {
     const label = `${c.expected ? "✓" : "✗"} "${c.submitted}" vs "${c.canonical}" — ${c.why}`;
+    /**
+     * Runs the it test callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     it(label, () => {
       expect(isCorrect(c.submitted, c.canonical, c.aliases)).toBe(c.expected);
     });

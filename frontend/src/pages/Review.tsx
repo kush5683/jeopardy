@@ -21,6 +21,23 @@ type ReviewStats = {
   nextReviewAt: string | null;
 };
 
+/**
+ * Renders the Review React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ * - Converts component state and props into JSX UI output.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Review() {
   useDocumentTitle("Review");
   const { user } = useAuth();
@@ -41,18 +58,58 @@ export function Review() {
   const [markingResponseId, setMarkingResponseId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (!user) return;
     refresh();
   }, [user]);
 
   // Kick off hint generation in the background when a clue is shown.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     const c = clues[idx];
     if (!c) return;
     void api.post(`/clues/${c.id}/hint/prepare`).catch(() => {});
   }, [clues, idx]);
 
+  /**
+   * Implements the refresh function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function refresh() {
     try {
       const [a, b] = await Promise.all([
@@ -72,8 +129,32 @@ export function Review() {
     }
   }
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (!result || markingResponseId === result.responseId) return;
+    /**
+     * Handles the key event.
+     *
+     * Parameters:
+     * - `e` (`KeyboardEvent`): Browser or React event object read for form, keyboard, or pointer state.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     function onKey(e: KeyboardEvent) {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -85,6 +166,21 @@ export function Review() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- next() captures latest idx/clues via closure
   }, [result, idx, markingResponseId]);
 
+  /**
+   * Handles the submit event.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -117,6 +213,19 @@ export function Review() {
     }
   }
 
+  /**
+   * Implements the mark as got it function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function markAsGotIt() {
     if (!result || result.correct) return;
     const clue = clues[idx];
@@ -145,6 +254,19 @@ export function Review() {
     }
   }
 
+  /**
+   * Implements the mark as didnt get it function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function markAsDidntGetIt() {
     if (!result || !result.correct) return;
     const clue = clues[idx];
@@ -171,6 +293,19 @@ export function Review() {
     }
   }
 
+  /**
+   * Implements the next function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   function next() {
     if (idx + 1 >= clues.length) {
       refresh();
@@ -304,6 +439,18 @@ export function Review() {
   );
 }
 
+/**
+ * Renders the Stat React component.
+ *
+ * Parameters:
+ * - `{ label, value }` (`{ label: string; value: string | number }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="bg-white/5 rounded p-3 sm:p-4 min-w-0">

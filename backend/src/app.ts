@@ -15,6 +15,18 @@ import { multiplayerRouter } from "./routes/multiplayer";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+/**
+ * Implements the host is local function.
+ *
+ * Parameters:
+ * - `host` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function hostIsLocal(host: string): boolean {
   const normalized = host.toLowerCase();
   return (
@@ -27,6 +39,19 @@ function hostIsLocal(host: string): boolean {
   );
 }
 
+/**
+ * Implements the header origin host function.
+ *
+ * Parameters:
+ * - `value` (`string | undefined`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function headerOriginHost(value: string | undefined): string | null {
   if (!value) return null;
   try {
@@ -36,6 +61,18 @@ function headerOriginHost(value: string | undefined): string | null {
   }
 }
 
+/**
+ * Implements the content security policy function.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function contentSecurityPolicy(): string {
   return [
     "default-src 'self'",
@@ -52,10 +89,42 @@ function contentSecurityPolicy(): string {
   ].join("; ");
 }
 
+/**
+ * Builds app data.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Express`: Configured Express application instance.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
 
+  /**
+   * Handles the registered middleware callback.
+   *
+   * Parameters:
+   * - `req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+   * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+   * - `next` (`NextFunction`): Express continuation callback for passing control to the next middleware.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   app.use((req, res, next) => {
     const host = (req.headers.host ?? "").toLowerCase();
     res.setHeader("Content-Security-Policy", contentSecurityPolicy());
@@ -77,6 +146,22 @@ export function createApp() {
   });
 
   app.use(express.json({ limit: "1mb" }));
+  /**
+   * Handles the registered middleware callback.
+   *
+   * Parameters:
+   * - `req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+   * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+   * - `next` (`NextFunction`): Express continuation callback for passing control to the next middleware.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   app.use((req, res, next) => {
     if (!MUTATING_METHODS.has(req.method)) {
       next();
@@ -103,6 +188,19 @@ export function createApp() {
     next();
   });
 
+  /**
+   * Handles the GET /api/health route or middleware callback.
+   *
+   * Parameters:
+   * - `_req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+   * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+   *
+   * Output:
+   * - `Response<any, Record<string, any>, number>`: Express response object returned by the chained response writer.
+   *
+   * Data transformations:
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   */
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
   app.use("/api/auth", authRouter);
   app.use("/api/clues", cluesRouter);
@@ -125,6 +223,19 @@ export function createApp() {
   const frontendDist = candidatePaths.find((p) => fs.existsSync(p));
   if (frontendDist) {
     app.use(express.static(frontendDist));
+    /**
+     * Handles the GET registered route or middleware callback.
+     *
+     * Parameters:
+     * - `_req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+     * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Tokenizes or pattern-matches strings to derive comparable values.
+     */
     app.get(/^\/(?!api).*/, (_req, res) => {
       res.sendFile(path.join(frontendDist, "index.html"));
     });

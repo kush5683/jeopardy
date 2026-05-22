@@ -7,6 +7,21 @@ import { friendRequestLimiter } from "../middleware/rateLimit";
 
 export const friendsRouter = Router();
 
+/**
+ * Handles the GET / route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 friendsRouter.get("/", requireAuth, async (req: AuthedRequest, res) => {
   const friendships = await prisma.friendship.findMany({
     where: {
@@ -25,6 +40,21 @@ friendsRouter.get("/", requireAuth, async (req: AuthedRequest, res) => {
   res.json({ friends });
 });
 
+/**
+ * Handles the GET /pending route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 friendsRouter.get("/pending", requireAuth, async (req: AuthedRequest, res) => {
   const incoming = await prisma.friendship.findMany({
     where: { addresseeId: req.userId!, status: FriendshipStatus.PENDING },
@@ -56,6 +86,23 @@ friendsRouter.get("/pending", requireAuth, async (req: AuthedRequest, res) => {
 
 const requestSchema = z.object({ email: z.string().email() });
 
+/**
+ * Handles the POST /request route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 friendsRouter.post(
   "/request",
   friendRequestLimiter,
@@ -101,6 +148,22 @@ friendsRouter.post(
   },
 );
 
+/**
+ * Handles the POST /respond/:id route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 friendsRouter.post(
   "/respond/:id",
   requireAuth,
@@ -132,6 +195,21 @@ friendsRouter.post(
   },
 );
 
+/**
+ * Handles the DELETE /:id route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 friendsRouter.delete("/:id", requireAuth, async (req: AuthedRequest, res) => {
   const id = req.params.id;
   const friendship = await prisma.friendship.findUnique({ where: { id } });

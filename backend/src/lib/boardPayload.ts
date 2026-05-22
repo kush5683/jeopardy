@@ -35,6 +35,19 @@ export type SharedCell = z.infer<typeof sharedCellSchema>;
 export type SharedRoundBoard = z.infer<typeof sharedRoundBoardSchema>;
 export type SharedEpisode = z.infer<typeof sharedEpisodeSchema>;
 
+/**
+ * Builds round board data.
+ *
+ * Parameters:
+ * - `roundClues` (`Array<{ id: number; question: string; value: number; round: Round; dailyDouble: boolean; categoryId: number; category: { name: string }; }>`): Clue data read from API or database rows and reshaped for gameplay.
+ *
+ * Output:
+ * - `SharedRoundBoard`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function buildRoundBoard(
   roundClues: Array<{
     id: number;
@@ -84,6 +97,22 @@ function buildRoundBoard(
   };
 }
 
+/**
+ * Implements the get episode board function.
+ *
+ * Parameters:
+ * - `dateStr` (`string` optional): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `Promise<SharedEpisode>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export async function getEpisodeBoard(dateStr?: string): Promise<SharedEpisode> {
   let resolvedDate = dateStr;
   if (!resolvedDate || !/^\d{4}-\d{2}-\d{2}$/.test(resolvedDate)) {
@@ -139,10 +168,40 @@ export async function getEpisodeBoard(dateStr?: string): Promise<SharedEpisode> 
   };
 }
 
+/**
+ * Implements the get mixed board function.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Promise<SharedEpisode>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 export async function getMixedBoard(): Promise<SharedEpisode> {
   const J_VALUES = [200, 400, 600, 800, 1000];
   const DJ_VALUES = [400, 800, 1200, 1600, 2000];
 
+  /**
+   * Builds round data.
+   *
+   * Parameters:
+   * - `round` (`"JEOPARDY" | "DOUBLE_JEOPARDY"`): Caller-provided value consumed by the function body.
+   * - `values` (`number[]`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<SharedRoundBoard>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   */
   async function buildRound(
     round: "JEOPARDY" | "DOUBLE_JEOPARDY",
     values: number[],
@@ -238,6 +297,20 @@ export async function getMixedBoard(): Promise<SharedEpisode> {
     }
   }
 
+  /**
+   * Implements the sprinkle daily doubles function.
+   *
+   * Parameters:
+   * - `board` (`SharedRoundBoard`): Caller-provided value consumed by the function body.
+   * - `count` (`number`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function sprinkleDailyDoubles(board: SharedRoundBoard, count: number) {
     let cells: { categoryIdx: number; cellIdx: number }[] = [];
     board.categories.forEach((category, categoryIdx) => {

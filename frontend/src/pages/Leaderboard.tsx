@@ -19,6 +19,18 @@ type TooltipProps = {
   align?: "left" | "right";
 };
 
+/**
+ * Renders the InfoTooltip React component.
+ *
+ * Parameters:
+ * - `{ label, children, align }` (`TooltipProps`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function InfoTooltip({ label, children, align = "left" }: TooltipProps) {
   const placement =
     align === "right"
@@ -44,6 +56,18 @@ function InfoTooltip({ label, children, align = "left" }: TooltipProps) {
   );
 }
 
+/**
+ * Renders the HeaderWithTooltip React component.
+ *
+ * Parameters:
+ * - `{ children, tooltip, align }` (`{ children: string; tooltip: string; align?: "left" | "right"; }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function HeaderWithTooltip({
   children,
   tooltip,
@@ -67,6 +91,21 @@ function HeaderWithTooltip({
   );
 }
 
+/**
+ * Renders the Leaderboard React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Leaderboard() {
   useDocumentTitle("Leaderboard");
   const { user } = useAuth();
@@ -76,6 +115,19 @@ export function Leaderboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  /**
+   * Loads load data.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   const load = useCallback(() => {
     if (scope === "friends" && !user) {
       setRows([]);
@@ -97,6 +149,18 @@ export function Leaderboard() {
       .finally(() => setLoading(false));
   }, [scope, user]);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     load();
   }, [load]);

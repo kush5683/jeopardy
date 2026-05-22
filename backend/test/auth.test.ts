@@ -1,7 +1,33 @@
 import { describe, it, expect } from "vitest";
 import { newAgent, registerUser, authHeader } from "./helpers";
 
+/**
+ * Runs the describe "auth + friends" test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 describe("auth + friends", () => {
+  /**
+   * Runs the it "registers a user and sets a usable session cookie" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Transforms credentials or session data into hashes, tokens, or cookies.
+   */
   it("registers a user and sets a usable session cookie", async () => {
     const agent = newAgent();
     const { cookies, userId } = await registerUser(agent);
@@ -12,6 +38,18 @@ describe("auth + friends", () => {
     expect(me.body).toHaveProperty("totalAnswered", 0);
   });
 
+  /**
+   * Runs the it "rejects duplicate email on register" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("rejects duplicate email on register", async () => {
     const agent = newAgent();
     const { email } = await registerUser(agent);
@@ -21,6 +59,18 @@ describe("auth + friends", () => {
       .expect(409);
   });
 
+  /**
+   * Runs the it "rejects wrong password on login" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("rejects wrong password on login", async () => {
     const agent = newAgent();
     const { email } = await registerUser(agent);
@@ -30,6 +80,19 @@ describe("auth + friends", () => {
       .expect(401);
   });
 
+  /**
+   * Runs the it "logs in with correct password" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Transforms credentials or session data into hashes, tokens, or cookies.
+   */
   it("logs in with correct password", async () => {
     const agent = newAgent();
     const { email } = await registerUser(agent, { password: "password1" });
@@ -46,6 +109,18 @@ describe("auth + friends", () => {
     );
   });
 
+  /**
+   * Runs the it "logout clears the session cookie" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("logout clears the session cookie", async () => {
     const agent = newAgent();
     await registerUser(agent);
@@ -53,6 +128,18 @@ describe("auth + friends", () => {
     await agent.get("/api/stats/me").expect(401);
   });
 
+  /**
+   * Runs the it "friends/request does not enumerate emails" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("friends/request does not enumerate emails", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -76,6 +163,18 @@ describe("auth + friends", () => {
     expect(r2.body).toEqual({ ok: true });
   });
 
+  /**
+   * Runs the it "friends/request creates a pending row for real users" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("friends/request creates a pending row for real users", async () => {
     const agent = newAgent();
     const a = await registerUser(agent);

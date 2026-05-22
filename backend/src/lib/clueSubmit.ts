@@ -65,6 +65,20 @@ const NUM_WORDS: Record<string, string> = {
   nineties: "90s",
 };
 
+/**
+ * Normalizes normalize input.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function normalize(s: string): string {
   const base = s
     .normalize("NFD")
@@ -82,6 +96,19 @@ function normalize(s: string): string {
     .join(" ");
 }
 
+/**
+ * Checks the inflection condition.
+ *
+ * Parameters:
+ * - `a` (`string`): Caller-provided value consumed by the function body.
+ * - `b` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function isInflection(a: string, b: string): boolean {
   if (a === b) return true;
   const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
@@ -133,6 +160,19 @@ const STOPWORDS = new Set([
   "with",
 ]);
 
+/**
+ * Implements the edit distance function.
+ *
+ * Parameters:
+ * - `a` (`string`): Caller-provided value consumed by the function body.
+ * - `b` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function editDistance(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;
@@ -163,14 +203,54 @@ function editDistance(a: string, b: string): number {
   return matrix[a.length][b.length];
 }
 
+/**
+ * Implements the phrase words align function.
+ *
+ * Parameters:
+ * - `a` (`string`): Caller-provided value consumed by the function body.
+ * - `b` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function phraseWordsAlign(a: string, b: string): boolean {
   const aWords = a.split(" ").filter(Boolean);
   const bWords = b.split(" ").filter(Boolean);
   if (aWords.length === 0 || bWords.length === 0) return false;
+  /**
+   * Implements the word threshold function.
+   *
+   * Parameters:
+   * - `len` (`number`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `number`: Numeric value calculated from inputs, state, or persisted data.
+   *
+   * Data transformations:
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function wordThreshold(len: number): number {
     if (len <= 4) return 0;
     return Math.max(1, Math.floor(len / 5));
   }
+  /**
+   * Checks the has condition.
+   *
+   * Parameters:
+   * - `word` (`string`): Caller-provided value consumed by the function body.
+   * - `candidates` (`string[]`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   function has(word: string, candidates: string[]): boolean {
     const threshold = wordThreshold(word.length);
     return candidates.some(
@@ -188,16 +268,54 @@ function phraseWordsAlign(a: string, b: string): boolean {
   );
 }
 
+/**
+ * Implements the contains as phrase function.
+ *
+ * Parameters:
+ * - `haystack` (`string`): Caller-provided value consumed by the function body.
+ * - `needle` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function containsAsPhrase(haystack: string, needle: string): boolean {
   if (haystack === needle) return true;
   return ` ${haystack} `.includes(` ${needle} `);
 }
 
+/**
+ * Implements the fuzzy threshold function.
+ *
+ * Parameters:
+ * - `len` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function fuzzyThreshold(len: number): number {
   if (len <= 3) return 0;
   return Math.max(1, Math.floor(len / 5));
 }
 
+/**
+ * Implements the important words function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function importantWords(s: string): string[] {
   return s
     .split(" ")
@@ -215,6 +333,22 @@ const MULTI_OPTION_SKIP = new Set([
   "&",
 ]);
 
+/**
+ * Implements the try multi option function.
+ *
+ * Parameters:
+ * - `submittedRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ * - `canonicalRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `boolean | null`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function tryMultiOption(
   submittedRaw: string,
   canonicalRaw: string,
@@ -280,6 +414,22 @@ function tryMultiOption(
   return matched >= count && unmatched === 0;
 }
 
+/**
+ * Implements the try ampersand list function.
+ *
+ * Parameters:
+ * - `submittedRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ * - `canonicalRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `boolean | null`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function tryAmpersandList(
   submittedRaw: string,
   canonicalRaw: string,
@@ -333,6 +483,19 @@ function tryAmpersandList(
   return matched >= parts.length && unmatched === 0;
 }
 
+/**
+ * Implements the extract parentheticals function.
+ *
+ * Parameters:
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function extractParentheticals(canonical: string): string[] {
   const out: string[] = [];
   const re = /\(([^)]+)\)/g;
@@ -355,6 +518,19 @@ const DECADE_WORD_BY_TENS: Record<string, string> = {
   "9": "nineties",
 };
 
+/**
+ * Implements the decade aliases of function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function decadeAliasesOf(s: string): string[] {
   const re = /\b[12]\d([2-9])0'?s\b/i;
   if (!re.test(s)) return [];
@@ -369,6 +545,20 @@ function decadeAliasesOf(s: string): string[] {
   return [short, word];
 }
 
+/**
+ * Checks the correct condition.
+ *
+ * Parameters:
+ * - `submitted` (`string`): Caller-provided value consumed by the function body.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `aliases` (`string[]`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 export function isCorrect(
   submitted: string,
   canonical: string,
@@ -399,6 +589,22 @@ export function isCorrect(
   return false;
 }
 
+/**
+ * Implements the match against function.
+ *
+ * Parameters:
+ * - `submitted` (`string`): Caller-provided value consumed by the function body.
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function matchAgainst(submitted: string, canonical: string): boolean {
   const multi = tryMultiOption(submitted, canonical);
   if (multi !== null) return multi;
@@ -482,6 +688,19 @@ function matchAgainst(submitted: string, canonical: string): boolean {
   return false;
 }
 
+/**
+ * Implements the check clue answer function.
+ *
+ * Parameters:
+ * - `clue` (`NonNullable<ClueRecord>`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `answer` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<AnswerVerdict>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 export async function checkClueAnswer(
   clue: NonNullable<ClueRecord>,
   answer: string,
@@ -504,6 +723,20 @@ export async function checkClueAnswer(
   };
 }
 
+/**
+ * Implements the score delta for clue function.
+ *
+ * Parameters:
+ * - `correct` (`boolean`): Caller-provided value consumed by the function body.
+ * - `clueValue` (`number`): Clue data read from API or database rows and reshaped for gameplay.
+ * - `wager` (`number | null` optional): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 export function scoreDeltaForClue(
   correct: boolean,
   clueValue: number,
@@ -513,6 +746,18 @@ export function scoreDeltaForClue(
   return correct ? amount : -amount;
 }
 
+/**
+ * Implements the submit clue answer function.
+ *
+ * Parameters:
+ * - `{ userId, clueId, answer, responseTimeMs, mode, wager, buzzerSessionId }` (`SubmitClueAnswerParams`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Promise<{ clue: { value: number; id: number; question: string; round: Round; dailyDouble: boolean; categoryId: number; answer: string; airDate: Date; wikiTit...`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 export async function submitClueAnswer({
   userId,
   clueId,

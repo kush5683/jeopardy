@@ -96,14 +96,53 @@ type SavedBoardGame = {
 
 const BOARD_SAVE_KEY = "board-game-v1";
 
+/**
+ * Normalizes share code input.
+ *
+ * Parameters:
+ * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function normalizeShareCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/**
+ * Implements the format share code function.
+ *
+ * Parameters:
+ * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function formatShareCode(raw: string): string {
   return normalizeShareCode(raw).replace(/(.{4})(?=.)/g, "$1-");
 }
 
+/**
+ * Loads saved board data.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `SavedBoardGame | null`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function loadSavedBoard(): SavedBoardGame | null {
   try {
     const raw = localStorage.getItem(BOARD_SAVE_KEY);
@@ -132,6 +171,20 @@ function loadSavedBoard(): SavedBoardGame | null {
   return null;
 }
 
+/**
+ * Persists board game data.
+ *
+ * Parameters:
+ * - `s` (`SavedBoardGame`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function saveBoardGame(s: SavedBoardGame): void {
   try {
     localStorage.setItem(BOARD_SAVE_KEY, JSON.stringify(s));
@@ -140,6 +193,19 @@ function saveBoardGame(s: SavedBoardGame): void {
   }
 }
 
+/**
+ * Clears board save state or resources.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function clearBoardSave(): void {
   try {
     localStorage.removeItem(BOARD_SAVE_KEY);
@@ -148,6 +214,19 @@ function clearBoardSave(): void {
   }
 }
 
+/**
+ * Implements the round has unplayed function.
+ *
+ * Parameters:
+ * - `round` (`RoundBoard`): Caller-provided value consumed by the function body.
+ * - `played` (`Set<number>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function roundHasUnplayed(round: RoundBoard, played: Set<number>): boolean {
   for (const cat of round.categories) {
     for (const cell of cat.cells) {
@@ -157,10 +236,40 @@ function roundHasUnplayed(round: RoundBoard, played: Set<number>): boolean {
   return false;
 }
 
+/**
+ * Checks the play final condition.
+ *
+ * Parameters:
+ * - `total` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function canPlayFinal(total: number): boolean {
   return total >= 0;
 }
 
+/**
+ * Renders the Board React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 export function Board() {
   useDocumentTitle("Board");
   const { user } = useAuth();
@@ -194,6 +303,18 @@ export function Board() {
   const [pendingResume, setPendingResume] = useState<SavedBoardGame | null>(null);
   const formattedShareCode = shareCode ? formatShareCode(shareCode) : null;
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     setPendingResume(loadSavedBoard());
   }, []);
@@ -211,6 +332,18 @@ export function Board() {
 
   // Snapshot the game state to localStorage. Called after every state change
   // (cell played, score change, final answered) so a refresh can resume.
+  /**
+   * Implements the persist function.
+   *
+   * Parameters:
+   * - `opts` (`{ nextPlayed?: PlayedSet; nextScore?: number; nextEpisode?: Episode | null; finalDone?: boolean; nextShareCode?: string | null; }`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function persist(opts: {
     nextPlayed?: PlayedSet;
     nextScore?: number;
@@ -229,11 +362,37 @@ export function Board() {
     });
   }
 
+  /**
+   * Clears timers state or resources.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function clearTimers() {
     timers.current.forEach((t) => clearTimeout(t));
     timers.current = [];
   }
 
+  /**
+   * Implements the start game function.
+   *
+   * Parameters:
+   * - `mode` (`GameMode`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   async function startGame(mode: GameMode) {
     setPhase({ kind: "loading" });
     clearBoardSave();
@@ -258,6 +417,19 @@ export function Board() {
     });
   }
 
+  /**
+   * Implements the resume board game function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function resumeBoardGame() {
     if (!pendingResume) return;
     const ep = pendingResume.episode;
@@ -284,6 +456,18 @@ export function Board() {
     }
   }
 
+  /**
+   * Implements the discard board save function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function discardBoardSave() {
     clearBoardSave();
     setPendingResume(null);
@@ -292,6 +476,19 @@ export function Board() {
     setShareStatus(null);
   }
 
+  /**
+   * Implements the copy share code function.
+   *
+   * Parameters:
+   * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function copyShareCode(raw: string) {
     const formatted = formatShareCode(raw);
     try {
@@ -304,6 +501,20 @@ export function Board() {
     }
   }
 
+  /**
+   * Builds board share data.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function createBoardShare() {
     if (!episode || shareBusy) return;
     if (shareCode) {
@@ -329,6 +540,21 @@ export function Board() {
     }
   }
 
+  /**
+   * Loads shared board data.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function loadSharedBoard(e: FormEvent) {
     e.preventDefault();
     const code = normalizeShareCode(shareCodeInput);
@@ -367,11 +593,36 @@ export function Board() {
     }
   }
 
+  /**
+   * Implements the current board function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `RoundBoard | null`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function currentBoard(): RoundBoard | null {
     if (!episode || phase.kind !== "board") return null;
     return phase.round === "JEOPARDY" ? episode.jeopardy : episode.doubleJeopardy;
   }
 
+  /**
+   * Implements the select cell function.
+   *
+   * Parameters:
+   * - `cell` (`Cell`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function selectCell(cell: Cell) {
     if (!cell || phase.kind !== "board") return;
     if (played.has(cell.id)) return;
@@ -384,6 +635,21 @@ export function Board() {
     startReading(cell, phase.round);
   }
 
+  /**
+   * Implements the start reading function.
+   *
+   * Parameters:
+   * - `cell` (`NonNullable<Cell>`): Caller-provided value consumed by the function body.
+   * - `round` (`RoundKind`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Tokenizes or pattern-matches strings to derive comparable values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function startReading(cell: NonNullable<Cell>, round: RoundKind) {
     clearTimers();
     setAnswer("");
@@ -391,6 +657,18 @@ export function Board() {
     if (ttsMode) tts.speak(`${cell.category}, for $${cell.value}. ${cell.question}`);
     const wordCount = cell.question.split(/\s+/).length;
     const readMs = Math.max(1500, wordCount * READING_RATE_MS_PER_WORD);
+    /**
+     * Runs the delayed setTimeout timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     */
     timers.current.push(
       setTimeout(() => {
         setPhase((cur) =>
@@ -398,6 +676,18 @@ export function Board() {
             ? { kind: "ready", cell, round }
             : cur,
         );
+        /**
+         * Runs the delayed setTimeout timer callback.
+         *
+         * Parameters:
+         * - None.
+         *
+         * Output:
+         * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+         *
+         * Data transformations:
+         * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+         */
         timers.current.push(
           setTimeout(() => {
             const cur = phaseRef.current;
@@ -410,12 +700,41 @@ export function Board() {
     );
   }
 
+  /**
+   * Implements the buzz function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Tokenizes or pattern-matches strings to derive comparable values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function buzz() {
     const cur = phaseRef.current;
     if (cur.kind === "reading") {
       clearTimers();
       tts.cancel();
       setPhase({ kind: "lockedOut", cell: cur.cell, round: cur.round });
+      /**
+       * Runs the delayed setTimeout timer callback.
+       *
+       * Parameters:
+       * - None.
+       *
+       * Output:
+       * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+       *
+       * Data transformations:
+       * - Tokenizes or pattern-matches strings to derive comparable values.
+       * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+       * - Computes numeric bounds, random values, or cryptographic tokens.
+       */
       timers.current.push(
         setTimeout(() => {
           const c = phaseRef.current;
@@ -424,6 +743,18 @@ export function Board() {
           if (ttsMode) tts.speak(c.cell.question);
           const wordCount = c.cell.question.split(/\s+/).length;
           const remainingReadMs = Math.max(800, Math.floor(wordCount * READING_RATE_MS_PER_WORD * 0.4));
+          /**
+           * Runs the delayed setTimeout timer callback.
+           *
+           * Parameters:
+           * - None.
+           *
+           * Output:
+           * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+           *
+           * Data transformations:
+           * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+           */
           timers.current.push(
             setTimeout(() => {
               setPhase((p) =>
@@ -431,6 +762,18 @@ export function Board() {
                   ? { kind: "ready", cell: c.cell, round: c.round }
                   : p,
               );
+              /**
+               * Runs the delayed setTimeout timer callback.
+               *
+               * Parameters:
+               * - None.
+               *
+               * Output:
+               * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+               *
+               * Data transformations:
+               * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+               */
               timers.current.push(
                 setTimeout(() => {
                   const p = phaseRef.current;
@@ -453,6 +796,22 @@ export function Board() {
     }
   }
 
+  /**
+   * Implements the pass clue function.
+   *
+   * Parameters:
+   * - `cell` (`NonNullable<Cell>`): Caller-provided value consumed by the function body.
+   * - `round` (`RoundKind`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function passClue(cell: NonNullable<Cell>, round: RoundKind) {
     if (passingRef.current) return;
     passingRef.current = true;
@@ -476,12 +835,37 @@ export function Board() {
     }
   }
 
+  /**
+   * Implements the skip clue function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function skipClue() {
     const cur = phaseRef.current;
     if (cur.kind !== "reading" && cur.kind !== "ready" && cur.kind !== "lockedOut") return;
     void passClue(cur.cell, cur.round);
   }
 
+  /**
+   * Implements the confirm ddwager function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   function confirmDDWager(e: FormEvent) {
     e.preventDefault();
     if (phase.kind !== "wager") return;
@@ -496,6 +880,22 @@ export function Board() {
     if (ttsMode) tts.speak(`Daily Double! ${phase.cell.category}. ${phase.cell.question}`);
   }
 
+  /**
+   * Implements the submit clue answer function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   async function submitClueAnswer(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -536,11 +936,48 @@ export function Board() {
     }
   }
 
+  /**
+   * Handles the answer timeout workflow.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function handleAnswerTimeout() {
     if (phase.kind !== "answering") return;
+    /**
+     * Implements the prevent default function.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     submitClueAnswer({ preventDefault: () => {} } as FormEvent);
   }
 
+  /**
+   * Implements the back to board function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function backToBoard() {
     const cur = phaseRef.current;
     const curEpisode = episodeRef.current;
@@ -568,6 +1005,20 @@ export function Board() {
     setPhase({ kind: "board", round });
   }
 
+  /**
+   * Implements the confirm final wager function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   function confirmFinalWager(e: FormEvent) {
     e.preventDefault();
     if (phase.kind !== "final-wager") return;
@@ -587,6 +1038,21 @@ export function Board() {
     if (ttsMode) tts.speak(`Final Jeopardy. ${phase.clue.category}. ${phase.clue.question}`);
   }
 
+  /**
+   * Implements the submit final answer function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   async function submitFinalAnswer(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -621,6 +1087,19 @@ export function Board() {
     }
   }
 
+  /**
+   * Generates game data.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function newGame() {
     tts.cancel();
     clearTimers();
@@ -640,6 +1119,19 @@ export function Board() {
   // Kick off hint generation as soon as a clue is on screen. Re-fire when
   // moving into result/passed for the same clue so we recover from any missed
   // earlier kickoff; endpoint is idempotent.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     let id: number | null = null;
     if (
@@ -657,7 +1149,31 @@ export function Board() {
     void api.post(`/clues/${id}/hint/prepare`).catch(() => {});
   }, [phase.kind, phase.kind === "final-answer" || phase.kind === "final-result" ? phase.clue.id : phase.kind === "reading" || phase.kind === "ready" || phase.kind === "answering" || phase.kind === "result" || phase.kind === "passed" ? phase.cell.id : null]);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
+    /**
+     * Handles the key event.
+     *
+     * Parameters:
+     * - `e` (`KeyboardEvent`): Browser or React event object read for form, keyboard, or pointer state.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     function onKey(e: KeyboardEvent) {
       const cur = phaseRef.current;
       if (e.code === "Space") {
@@ -677,6 +1193,18 @@ export function Board() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handler reads phaseRef, not state
   }, []);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => () => clearTimers(), []);
 
   if (!user) {
@@ -1193,6 +1721,18 @@ export function Board() {
           totalMs={FINAL_TIME_MS}
           resetKey={phase.clue.id}
           paused={false}
+          /**
+           * Implements the prevent default function.
+           *
+           * Parameters:
+           * - None.
+           *
+           * Output:
+           * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+           *
+           * Data transformations:
+           * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+           */
           onExpire={() => answer.trim().length === 0 && submitFinalAnswer({ preventDefault: () => {} } as FormEvent)}
         />
         <form onSubmit={submitFinalAnswer} className="flex gap-2">

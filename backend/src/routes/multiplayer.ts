@@ -12,6 +12,21 @@ import {
 
 export const multiplayerRouter = Router();
 
+/**
+ * Handles the POST /rooms route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 multiplayerRouter.post(
   "/rooms",
   multiplayerCreateLimiter,
@@ -35,6 +50,21 @@ multiplayerRouter.post(
   },
 );
 
+/**
+ * Handles the POST /join route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 multiplayerRouter.post(
   "/join",
   multiplayerJoinLimiter,
@@ -54,6 +84,20 @@ multiplayerRouter.post(
   },
 );
 
+/**
+ * Handles the GET /rooms/:code route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 multiplayerRouter.get(
   "/rooms/:code",
   requireAuth,
@@ -67,6 +111,20 @@ multiplayerRouter.get(
   },
 );
 
+/**
+ * Handles the POST /rooms/:code/start route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 multiplayerRouter.post(
   "/rooms/:code/start",
   requireAuth,
@@ -80,6 +138,20 @@ multiplayerRouter.post(
   },
 );
 
+/**
+ * Handles the POST /rooms/:code/leave route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 multiplayerRouter.post(
   "/rooms/:code/leave",
   requireAuth,

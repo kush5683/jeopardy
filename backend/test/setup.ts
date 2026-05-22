@@ -13,6 +13,18 @@ import { beforeAll, beforeEach } from "vitest";
 // Migrate once per test process. Vitest is configured to run all files in a
 // single fork, so this runs exactly once.
 let migrated = false;
+/**
+ * Runs the beforeAll test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 beforeAll(() => {
   if (migrated) return;
   execSync("npx prisma migrate deploy", { stdio: "inherit" });
@@ -21,6 +33,18 @@ beforeAll(() => {
 
 // Wipe all user-generated rows between tests. Categories/Clues/FlashcardDeck
 // are reference data; tests that need them seed explicitly.
+/**
+ * Runs the beforeEach test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ */
 beforeEach(async () => {
   const { prisma } = await import("../src/lib/prisma");
   await prisma.$executeRawUnsafe(`

@@ -7,6 +7,18 @@ export const api = axios.create({
 // Browser auth rides on an HttpOnly same-site cookie, so the client can't clear
 // the credential directly. On a 401, bounce the user to /login unless the
 // request explicitly opted out (used by the initial auth bootstrap).
+/**
+ * Handles the interceptor callback registered on api.interceptors.response.
+ *
+ * Parameters:
+ * - `error` (`any`): Error value inspected or forwarded by the failure path.
+ *
+ * Output:
+ * - `Promise<never>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 api.interceptors.response.use(
   (response) => response,
   (error) => {

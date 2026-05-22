@@ -181,25 +181,89 @@ const FINAL_WAGER_WINDOW_MS = 30000;
 const FINAL_ANSWER_WINDOW_MS = 30000;
 const MIN_DD_WAGER = 5;
 
+/**
+ * Normalizes room code input.
+ *
+ * Parameters:
+ * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function normalizeRoomCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/**
+ * Implements the format room code function.
+ *
+ * Parameters:
+ * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function formatRoomCode(raw: string): string {
   return normalizeRoomCode(raw).replace(/(.{3})(?=.)/g, "$1-");
 }
 
+/**
+ * Implements the ws url function.
+ *
+ * Parameters:
+ * - `code` (`string`): Code string normalized or validated before lookup.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function wsUrl(code: string): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/api/multiplayer/ws?code=${encodeURIComponent(code)}`;
 }
 
+/**
+ * Implements the remaining ms function.
+ *
+ * Parameters:
+ * - `deadlineAt` (`string`): Caller-provided value consumed by the function body.
+ * - `serverClockOffsetMs` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function remainingMs(deadlineAt: string, serverClockOffsetMs = 0): number {
   const deadlineMs = parseTimeMs(deadlineAt);
   if (deadlineMs == null) return 0;
   return Math.max(0, deadlineMs - (Date.now() + serverClockOffsetMs));
 }
 
+/**
+ * Implements the timer time left ms function.
+ *
+ * Parameters:
+ * - `deadlineAt` (`string`): Caller-provided value consumed by the function body.
+ * - `serverClockOffsetMs` (`number`): Caller-provided value consumed by the function body.
+ * - `maxMs` (`number` optional): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function timerTimeLeftMs(
   deadlineAt: string,
   serverClockOffsetMs: number,
@@ -209,11 +273,36 @@ function timerTimeLeftMs(
   return maxMs == null ? timeLeftMs : Math.min(maxMs, timeLeftMs);
 }
 
+/**
+ * Implements the player name function.
+ *
+ * Parameters:
+ * - `room` (`Room`): Caller-provided value consumed by the function body.
+ * - `userId` (`string | null`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function playerName(room: Room, userId: string | null): string {
   if (!userId) return "Nobody";
   return room.players.find((player) => player.userId === userId)?.displayName ?? "Unknown";
 }
 
+/**
+ * Implements the current round function.
+ *
+ * Parameters:
+ * - `room` (`Room`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `RoundKind | null`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function currentRound(room: Room): RoundKind | null {
   switch (room.state.phase.kind) {
     case "BOARD":
@@ -228,40 +317,138 @@ function currentRound(room: Room): RoundKind | null {
   }
 }
 
+/**
+ * Implements the current board function.
+ *
+ * Parameters:
+ * - `room` (`Room`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `RoundBoard | null`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function currentBoard(room: Room): RoundBoard | null {
   const round = currentRound(room);
   if (!round) return null;
   return round === "JEOPARDY" ? room.board.jeopardy : room.board.doubleJeopardy;
 }
 
+/**
+ * Implements the standings function.
+ *
+ * Parameters:
+ * - `room` (`Room`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `{ userId: string; displayName: string; seat: number; isHost: boolean; role: PlayerRole; connected: boolean; left: boolean; score: number; }[]`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function standings(room: Room) {
   return contestants(room).sort((a, b) => b.score - a.score || a.seat - b.seat);
 }
 
+/**
+ * Implements the contestants function.
+ *
+ * Parameters:
+ * - `room` (`Room`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `{ userId: string; displayName: string; seat: number; isHost: boolean; role: PlayerRole; connected: boolean; left: boolean; score: number; }[]`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function contestants(room: Room) {
   return room.players.filter((player) => player.role === "PLAYER");
 }
 
+/**
+ * Implements the audience members function.
+ *
+ * Parameters:
+ * - `room` (`Room`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `{ userId: string; displayName: string; seat: number; isHost: boolean; role: PlayerRole; connected: boolean; left: boolean; score: number; }[]`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function audienceMembers(room: Room) {
   return room.players.filter((player) => player.role === "AUDIENCE");
 }
 
+/**
+ * Checks the own condition.
+ *
+ * Parameters:
+ * - `record` (`T`): Caller-provided value consumed by the function body.
+ * - `key` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `key is keyof T & string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function hasOwn<T extends object>(record: T, key: string): key is keyof T & string {
   return Object.prototype.hasOwnProperty.call(record, key);
 }
 
+/**
+ * Implements the display draft wager function.
+ *
+ * Parameters:
+ * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function displayDraftWager(raw: string): string {
   const digits = raw.replace(/[^\d]/g, "");
   if (!digits) return "$";
   return `$${Number(digits).toLocaleString()}`;
 }
 
+/**
+ * Normalizes time ms input.
+ *
+ * Parameters:
+ * - `raw` (`string` optional): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `number | null`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 function parseTimeMs(raw?: string): number | null {
   if (!raw) return null;
   const parsed = new Date(raw).getTime();
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Implements the result advance actor user id function.
+ *
+ * Parameters:
+ * - `room` (`Room`): Caller-provided value consumed by the function body.
+ * - `phase` (`Extract<RoomPhase, { kind: "RESULT" }>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function resultAdvanceActorUserId(
   room: Room,
   phase: Extract<RoomPhase, { kind: "RESULT" }>,
@@ -276,6 +463,24 @@ function resultAdvanceActorUserId(
   return answeredByActive && answeredByUserId ? answeredByUserId : room.hostUserId;
 }
 
+/**
+ * Renders the MultiplayerBoard React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ */
 export function MultiplayerBoard() {
   useDocumentTitle("Online Multiplayer");
   const { user } = useAuth();
@@ -297,6 +502,18 @@ export function MultiplayerBoard() {
   const [wagerInput, setWagerInput] = useState("");
   const socketRef = useRef<WebSocket | null>(null);
 
+  /**
+   * Implements the my player function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `{ userId: string; displayName: string; seat: number; isHost: boolean; role: PlayerRole; connected: boolean; left: boolean; score: number; }`: Boolean decision value derived from validation, comparison, or state checks.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   const myPlayer = useMemo(
     () => room?.players.find((player) => player.userId === user?.id) ?? null,
     [room, user?.id],
@@ -305,17 +522,54 @@ export function MultiplayerBoard() {
   const iAmContestant = myPlayer?.role === "PLAYER" && !myPlayer.left;
   const iAmAudience = myPlayer?.role === "AUDIENCE" && !myPlayer.left;
   const hasBoardControl = iAmContestant && room?.state.selectorUserId === user?.id;
+  /**
+   * Implements the server clock offset ms function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `number`: Numeric value calculated from inputs, state, or persisted data.
+   *
+   * Data transformations:
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   const serverClockOffsetMs = useMemo(() => {
     const serverNowMs = parseTimeMs(room?.serverNow);
     return serverNowMs == null ? 0 : serverNowMs - Date.now();
   }, [room?.serverNow]);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     setActionError(null);
     setAnswerInput("");
     setWagerInput("");
   }, [room?.state.phase.kind]);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     if (!code) {
       setRoom(null);
@@ -341,12 +595,44 @@ export function MultiplayerBoard() {
     };
   }, [code]);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Validates unknown input with schema/runtime checks before using narrowed values.
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     if (!code || loadError) return;
     let stopped = false;
     let reconnectAttempts = 0;
     let reconnectTimer: number | null = null;
 
+    /**
+     * Implements the connect function.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Validates unknown input with schema/runtime checks before using narrowed values.
+     * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     * - Computes numeric bounds, random values, or cryptographic tokens.
+     * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+     */
     function connect() {
       if (stopped) return;
       const ws = new WebSocket(wsUrl(code));
@@ -415,6 +701,19 @@ export function MultiplayerBoard() {
     buzzOpenPhase && !room?.state.paused && iAmContestant && !iBuzzedThisClue,
   );
 
+  /**
+   * Implements the send action function.
+   *
+   * Parameters:
+   * - `payload` (`object`): Structured payload validated and projected into the required output shape.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   const sendAction = useCallback((payload: object) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       setActionError("Live room connection is down. Waiting to reconnect.");
@@ -423,11 +722,35 @@ export function MultiplayerBoard() {
     socketRef.current.send(JSON.stringify(payload));
   }, []);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (!canBuzz) return;
 
     // Spacebar acts like the physical buzzer, but should not steal keyboard
     // behavior from form fields, buttons, or links that currently have focus.
+    /**
+     * Handles the key down event.
+     *
+     * Parameters:
+     * - `event` (`KeyboardEvent`): Browser or React event object read for form, keyboard, or pointer state.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     function onKeyDown(event: KeyboardEvent) {
       if (event.repeat || (event.code !== "Space" && event.key !== " ")) return;
       const target = event.target as HTMLElement | null;
@@ -450,6 +773,20 @@ export function MultiplayerBoard() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [canBuzz, buzzOpenPhase?.buzzClosesAt, sendAction]);
 
+  /**
+   * Builds room data.
+   *
+   * Parameters:
+   * - `source` (`"episode" | "mixed"`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function createRoom(source: "episode" | "mixed") {
     setCreateBusy(source);
     setActionError(null);
@@ -464,6 +801,20 @@ export function MultiplayerBoard() {
     }
   }
 
+  /**
+   * Implements the join room function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function joinRoom(e: FormEvent) {
     e.preventDefault();
     const normalized = normalizeRoomCode(joinCode);
@@ -481,6 +832,20 @@ export function MultiplayerBoard() {
     }
   }
 
+  /**
+   * Implements the start room function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function startRoom() {
     if (!room || startBusy) return;
     setStartBusy(true);
@@ -497,6 +862,20 @@ export function MultiplayerBoard() {
     }
   }
 
+  /**
+   * Implements the leave room function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function leaveRoom() {
     if (!room || leaveBusy) return;
     setLeaveBusy(true);
@@ -512,12 +891,36 @@ export function MultiplayerBoard() {
     }
   }
 
+  /**
+   * Implements the submit answer function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function submitAnswer(e: FormEvent) {
     e.preventDefault();
     sendAction({ type: "submit-answer", answer: answerInput });
     setAnswerInput("");
   }
 
+  /**
+   * Implements the submit wager function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function submitWager(e: FormEvent) {
     e.preventDefault();
     const wager = parseInt(wagerInput, 10);
@@ -529,6 +932,18 @@ export function MultiplayerBoard() {
     setWagerInput("");
   }
 
+  /**
+   * Implements the update wager input function.
+   *
+   * Parameters:
+   * - `value` (`string`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function updateWagerInput(value: string) {
     setWagerInput(value);
     if (!user) return;
@@ -538,6 +953,18 @@ export function MultiplayerBoard() {
     }
   }
 
+  /**
+   * Implements the update answer input function.
+   *
+   * Parameters:
+   * - `value` (`string`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function updateAnswerInput(value: string) {
     setAnswerInput(value);
     if (!user) return;
@@ -1296,6 +1723,20 @@ export function MultiplayerBoard() {
   );
 }
 
+/**
+ * Renders the ResultAdvanceButton React component.
+ *
+ * Parameters:
+ * - `{ phase, paused, serverClockOffsetMs, onAdvance }` (`{ phase: Extract<RoomPhase, { kind: "RESULT" }>; paused: boolean; serverClockOffsetMs: number; onAdvance: () => void; }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function ResultAdvanceButton({
   phase,
   paused,
@@ -1307,6 +1748,18 @@ function ResultAdvanceButton({
   serverClockOffsetMs: number;
   onAdvance: () => void;
 }) {
+  /**
+   * Implements the now ms function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `number`: Numeric value calculated from inputs, state, or persisted data.
+   *
+   * Data transformations:
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   const nowMs = useCallback(() => Date.now() + serverClockOffsetMs, [
     serverClockOffsetMs,
   ]);
@@ -1318,8 +1771,32 @@ function ResultAdvanceButton({
   const totalMs = Math.max(1, unlocksAt - startedAt);
   const [now, setNow] = useState(nowMs());
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     setNow(nowMs());
+    /**
+     * Runs the delayed setInterval timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     */
     const id = window.setInterval(() => {
       const current = nowMs();
       setNow(current);
@@ -1353,6 +1830,18 @@ function ResultAdvanceButton({
   );
 }
 
+/**
+ * Renders the FinalRevealCard React component.
+ *
+ * Parameters:
+ * - `{ room, result }` (`{ room: Room; result: FinalResult }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function FinalRevealCard({ room, result }: { room: Room; result: FinalResult }) {
   return (
     <div
@@ -1390,6 +1879,18 @@ function FinalRevealCard({ room, result }: { room: Room; result: FinalResult }) 
   );
 }
 
+/**
+ * Renders the FinalRevealSummary React component.
+ *
+ * Parameters:
+ * - `{ room, result }` (`{ room: Room; result: FinalResult }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function FinalRevealSummary({ room, result }: { room: Room; result: FinalResult }) {
   return (
     <div className="rounded bg-white/5 px-4 py-3 flex items-center justify-between gap-3">
@@ -1407,6 +1908,18 @@ function FinalRevealSummary({ room, result }: { room: Room; result: FinalResult 
   );
 }
 
+/**
+ * Renders the ScoreStrip React component.
+ *
+ * Parameters:
+ * - `{ room, meUserId }` (`{ room: Room; meUserId: string }`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function ScoreStrip({ room, meUserId }: { room: Room; meUserId: string }) {
   return (
     <div className="grid gap-2 md:grid-cols-3">
@@ -1437,6 +1950,18 @@ function ScoreStrip({ room, meUserId }: { room: Room; meUserId: string }) {
   );
 }
 
+/**
+ * Renders the PlayerRoster React component.
+ *
+ * Parameters:
+ * - `{ room }` (`{ room: Room }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function PlayerRoster({ room }: { room: Room }) {
   const playerRows = contestants(room).slice().sort((a, b) => a.seat - b.seat);
   const audienceRows = audienceMembers(room).slice().sort((a, b) => a.seat - b.seat);
@@ -1486,6 +2011,18 @@ function PlayerRoster({ room }: { room: Room }) {
   );
 }
 
+/**
+ * Renders the BoardGrid React component.
+ *
+ * Parameters:
+ * - `{ board, played, selectable, onSelect }` (`{ board: RoundBoard; played: Set<number>; selectable: boolean; onSelect: (clueId: number) => void; }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function BoardGrid({
   board,
   played,
@@ -1545,6 +2082,18 @@ function BoardGrid({
   );
 }
 
+/**
+ * Renders the ClueStage React component.
+ *
+ * Parameters:
+ * - `{ heading, clue, subtext, children }` (`{ heading: string; clue: Cell; subtext: string; children: ReactNode; }`): Clue data read from API or database rows and reshaped for gameplay.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function ClueStage({
   heading,
   clue,

@@ -1,7 +1,37 @@
 import { describe, it, expect } from "vitest";
 import { newAgent, registerUser, seedClue, authHeader } from "./helpers";
 
+/**
+ * Runs the describe "daily/finish server-side recompute" test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 describe("daily/finish server-side recompute", () => {
+  /**
+   * Runs the it "ignores client body and recomputes from ClueResponse rows" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   it("ignores client body and recomputes from ClueResponse rows", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -55,6 +85,19 @@ describe("daily/finish server-side recompute", () => {
     expect(finish.body.attempt.totalClues).toBe(dailyClues.length);
   });
 
+  /**
+   * Runs the it "only counts DAILY-mode responses for today's daily clue set" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   */
   it("only counts DAILY-mode responses for today's daily clue set", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -77,6 +120,18 @@ describe("daily/finish server-side recompute", () => {
     expect(finish.body.attempt.totalCorrect).toBe(0);
   });
 
+  /**
+   * Runs the it "tracks progress and finish by requested daily date" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   */
   it("tracks progress and finish by requested daily date", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);

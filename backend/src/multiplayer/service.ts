@@ -259,10 +259,34 @@ export const multiplayerActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("advance") }),
 ]);
 
+/**
+ * Normalizes room code input.
+ *
+ * Parameters:
+ * - `raw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function normalizeRoomCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/**
+ * Generates room code data.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function newRoomCode(): string {
   const bytes = crypto.randomBytes(ROOM_CODE_LEN);
   let out = "";
@@ -272,6 +296,20 @@ function newRoomCode(): string {
   return out;
 }
 
+/**
+ * Builds initial state data.
+ *
+ * Parameters:
+ * - `playerIds` (`string[]`): Identifier value used to look up, compare, or persist related records.
+ * - `selectorUserId` (`string | null`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `RoomState`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function buildInitialState(
   playerIds: string[],
   selectorUserId: string | null = null,
@@ -287,40 +325,138 @@ function buildInitialState(
   };
 }
 
+/**
+ * Implements the player role from seat function.
+ *
+ * Parameters:
+ * - `seat` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `PlayerRole`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function playerRoleFromSeat(seat: number): PlayerRole {
   return seat <= MAX_PLAYERS ? "PLAYER" : "AUDIENCE";
 }
 
+/**
+ * Checks the contestant condition.
+ *
+ * Parameters:
+ * - `player` (`Pick<RoomWithPlayers["players"][number], "seat" | "leftAt">`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function isContestant(player: Pick<RoomWithPlayers["players"][number], "seat" | "leftAt">) {
   return !player.leftAt && playerRoleFromSeat(player.seat) === "PLAYER";
 }
 
+/**
+ * Implements the active players function.
+ *
+ * Parameters:
+ * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `{ id: string; roomId: string; userId: string; seat: number; joinedAt: Date; leftAt: Date; user: { id: string; displayName: string; }; }[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function activePlayers(room: RoomWithPlayers) {
   return room.players
     .filter(isContestant)
     .sort((a, b) => a.seat - b.seat);
 }
 
+/**
+ * Implements the active player user ids function.
+ *
+ * Parameters:
+ * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function activePlayerUserIds(room: RoomWithPlayers): string[] {
   return activePlayers(room).map((player) => player.userId);
 }
 
+/**
+ * Implements the unique user ids function.
+ *
+ * Parameters:
+ * - `userIds` (`string[]`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function uniqueUserIds(userIds: string[]): string[] {
   return [...new Set(userIds)];
 }
 
+/**
+ * Implements the phase buzzed user ids function.
+ *
+ * Parameters:
+ * - `phase` (`Extract<RoomPhase, { kind: "BUZZ_OPEN" | "ANSWERING" }>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function phaseBuzzedUserIds(
   phase: Extract<RoomPhase, { kind: "BUZZ_OPEN" | "ANSWERING" }>,
 ): string[] {
   return Array.isArray(phase.buzzedUserIds) ? phase.buzzedUserIds : [];
 }
 
+/**
+ * Implements the phase buzz attempts function.
+ *
+ * Parameters:
+ * - `phase` (`Extract<RoomPhase, { kind: "BUZZ_OPEN" | "ANSWERING" }>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `BuzzAttempt[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function phaseBuzzAttempts(
   phase: Extract<RoomPhase, { kind: "BUZZ_OPEN" | "ANSWERING" }>,
 ): BuzzAttempt[] {
   return Array.isArray(phase.attempts) ? phase.attempts : [];
 }
 
+/**
+ * Implements the all active players attempted function.
+ *
+ * Parameters:
+ * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+ * - `buzzedUserIds` (`string[]`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function allActivePlayersAttempted(
   room: RoomWithPlayers,
   buzzedUserIds: string[],
@@ -329,6 +465,21 @@ function allActivePlayersAttempted(
   return activePlayerUserIds(room).every((playerId) => buzzed.has(playerId));
 }
 
+/**
+ * Implements the next open seat function.
+ *
+ * Parameters:
+ * - `players` (`RoomWithPlayers["players"]`): Caller-provided value consumed by the function body.
+ * - `minSeat` (`number`): Caller-provided value consumed by the function body.
+ * - `maxSeat` (`number | null`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number | null`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function nextOpenSeat(
   players: RoomWithPlayers["players"],
   minSeat: number,
@@ -345,14 +496,50 @@ function nextOpenSeat(
   return null;
 }
 
+/**
+ * Implements the dd wager draft key function.
+ *
+ * Parameters:
+ * - `phase` (`Extract<RoomPhase, { kind: "DD_WAGER" }>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function ddWagerDraftKey(phase: Extract<RoomPhase, { kind: "DD_WAGER" }>) {
   return `dd-wager:${phase.clue.id}:${phase.playerUserId}`;
 }
 
+/**
+ * Implements the answer draft key function.
+ *
+ * Parameters:
+ * - `phase` (`Extract<RoomPhase, { kind: "ANSWERING" }>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function answerDraftKey(phase: Extract<RoomPhase, { kind: "ANSWERING" }>) {
   return `answer:${phase.clue.id}:${phase.answeringUserId}:${phase.answerBeganAt}`;
 }
 
+/**
+ * Implements the phase deadline at function.
+ *
+ * Parameters:
+ * - `phase` (`RoomPhase`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function phaseDeadlineAt(phase: RoomPhase): string | null {
   switch (phase.kind) {
     case "READING":
@@ -371,6 +558,19 @@ function phaseDeadlineAt(phase: RoomPhase): string | null {
   }
 }
 
+/**
+ * Implements the with phase deadline function.
+ *
+ * Parameters:
+ * - `phase` (`RoomPhase`): Caller-provided value consumed by the function body.
+ * - `deadlineAt` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `RoomPhase`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function withPhaseDeadline(phase: RoomPhase, deadlineAt: string): RoomPhase {
   switch (phase.kind) {
     case "READING":
@@ -390,6 +590,18 @@ function withPhaseDeadline(phase: RoomPhase, deadlineAt: string): RoomPhase {
   }
 }
 
+/**
+ * Implements the get room state function.
+ *
+ * Parameters:
+ * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `RoomState`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function getRoomState(room: RoomWithPlayers): RoomState {
   const raw = room.state;
   const fallback = buildInitialState(
@@ -415,6 +627,19 @@ function getRoomState(room: RoomWithPlayers): RoomState {
   return next;
 }
 
+/**
+ * Implements the get board payload function.
+ *
+ * Parameters:
+ * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `SharedEpisode`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function getBoardPayload(room: RoomWithPlayers): SharedEpisode {
   const parsed = sharedEpisodeSchema.safeParse(room.boardPayload);
   if (!parsed.success) {
@@ -423,10 +648,36 @@ function getBoardPayload(room: RoomWithPlayers): SharedEpisode {
   return parsed.data;
 }
 
+/**
+ * Implements the board for round function.
+ *
+ * Parameters:
+ * - `board` (`SharedEpisode`): Caller-provided value consumed by the function body.
+ * - `round` (`RoundKind`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `{ values?: number[]; categories?: { name?: string; cells?: { value?: number; id?: number; question?: string; round?: "JEOPARDY" | "DOUBLE_JEOPARDY" | "FINAL_...`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function boardForRound(board: SharedEpisode, round: RoundKind) {
   return round === "JEOPARDY" ? board.jeopardy : board.doubleJeopardy;
 }
 
+/**
+ * Implements the find board cell function.
+ *
+ * Parameters:
+ * - `board` (`SharedEpisode`): Caller-provided value consumed by the function body.
+ * - `clueId` (`number`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `{ round: RoundKind; clue: SharedCell; } | null`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function findBoardCell(board: SharedEpisode, clueId: number): {
   round: RoundKind;
   clue: SharedCell;
@@ -443,6 +694,20 @@ function findBoardCell(board: SharedEpisode, clueId: number): {
   return null;
 }
 
+/**
+ * Implements the round has unplayed function.
+ *
+ * Parameters:
+ * - `board` (`SharedEpisode`): Caller-provided value consumed by the function body.
+ * - `round` (`RoundKind`): Caller-provided value consumed by the function body.
+ * - `playedClueIds` (`number[]`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function roundHasUnplayed(
   board: SharedEpisode,
   round: RoundKind,
@@ -457,6 +722,19 @@ function roundHasUnplayed(
   return false;
 }
 
+/**
+ * Implements the next selector user id function.
+ *
+ * Parameters:
+ * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+ * - `selectorUserId` (`string | null`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function nextSelectorUserId(
   room: RoomWithPlayers,
   selectorUserId: string | null,
@@ -469,11 +747,37 @@ function nextSelectorUserId(
   return host?.userId ?? active[0]?.userId ?? null;
 }
 
+/**
+ * Implements the read duration ms function.
+ *
+ * Parameters:
+ * - `question` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function readDurationMs(question: string): number {
   const wordCount = question.split(/\s+/).filter(Boolean).length;
   return Math.max(MIN_READING_MS, wordCount * READING_RATE_MS_PER_WORD);
 }
 
+/**
+ * Builds result timing data.
+ *
+ * Parameters:
+ * - `now` (`Date`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `{ resultBeganAt: string; advanceUnlocksAt: string; }`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 function buildResultTiming(now = new Date()) {
   return {
     resultBeganAt: now.toISOString(),
@@ -483,6 +787,18 @@ function buildResultTiming(now = new Date()) {
   };
 }
 
+/**
+ * Implements the result advance unlock ms function.
+ *
+ * Parameters:
+ * - `phase` (`Extract<RoomPhase, { kind: "RESULT" }>`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 function resultAdvanceUnlockMs(
   phase: Extract<RoomPhase, { kind: "RESULT" }>,
 ): number {
@@ -496,10 +812,36 @@ function resultAdvanceUnlockMs(
   return Number.isFinite(beganAt) ? beganAt + RESULT_ADVANCE_DELAY_MS : 0;
 }
 
+/**
+ * Implements the max daily double wager function.
+ *
+ * Parameters:
+ * - `round` (`RoundKind`): Caller-provided value consumed by the function body.
+ * - `score` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `number`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function maxDailyDoubleWager(round: RoundKind, score: number): number {
   return Math.max(score, round === "JEOPARDY" ? 1000 : 2000);
 }
 
+/**
+ * Normalizes origin host input.
+ *
+ * Parameters:
+ * - `origin` (`string | undefined`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string | null`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function parseOriginHost(origin: string | undefined): string | null {
   if (!origin) return null;
   try {
@@ -509,6 +851,22 @@ function parseOriginHost(origin: string | undefined): string | null {
   }
 }
 
+/**
+ * Implements the serialize room function.
+ *
+ * Parameters:
+ * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+ * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+ * - `board` (`SharedEpisode`): Caller-provided value consumed by the function body.
+ * - `runtime` (`Runtime | undefined`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `PublicRoomState`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 function serializeRoom(
   room: RoomWithPlayers,
   state: RoomState,
@@ -540,6 +898,22 @@ function serializeRoom(
   };
 }
 
+/**
+ * Implements the personalize room function.
+ *
+ * Parameters:
+ * - `snapshot` (`PublicRoomState`): Caller-provided value consumed by the function body.
+ * - `viewerUserId` (`string`): Identifier value used to look up, compare, or persist related records.
+ * - `runtime` (`Runtime | undefined`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `PublicRoomState`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function personalizeRoom(
   snapshot: PublicRoomState,
   viewerUserId: string,
@@ -635,6 +1009,18 @@ export class MultiplayerService {
   private roomLocks = new Map<string, Promise<unknown>>();
   private wss: WebSocketServer | null = null;
 
+  /**
+   * Builds room data.
+   *
+   * Parameters:
+   * - `params` (`{ hostUserId: string; source: "episode" | "mixed"; date?: string; }`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   async createRoom(params: {
     hostUserId: string;
     source: "episode" | "mixed";
@@ -651,6 +1037,20 @@ export class MultiplayerService {
     return personalizeRoom(snapshot, params.hostUserId, runtime);
   }
 
+  /**
+   * Implements the join room method.
+   *
+   * Parameters:
+   * - `codeRaw` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   */
   async joinRoom(codeRaw: string, userId: string): Promise<PublicRoomState> {
     const code = normalizeRoomCode(codeRaw);
     const room = await this.loadRoomByCode(code);
@@ -716,6 +1116,19 @@ export class MultiplayerService {
     });
   }
 
+  /**
+   * Implements the get room method.
+   *
+   * Parameters:
+   * - `codeRaw` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   async getRoom(codeRaw: string, userId: string): Promise<PublicRoomState> {
     const code = normalizeRoomCode(codeRaw);
     const room = await this.loadRoomByCode(code);
@@ -736,6 +1149,20 @@ export class MultiplayerService {
     return personalizeRoom(snapshot, userId, runtime);
   }
 
+  /**
+   * Implements the start room method.
+   *
+   * Parameters:
+   * - `codeRaw` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   async startRoom(codeRaw: string, userId: string): Promise<PublicRoomState> {
     const code = normalizeRoomCode(codeRaw);
     const room = await this.loadRoomByCode(code);
@@ -778,6 +1205,21 @@ export class MultiplayerService {
     });
   }
 
+  /**
+   * Implements the leave room method.
+   *
+   * Parameters:
+   * - `codeRaw` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   async leaveRoom(codeRaw: string, userId: string): Promise<PublicRoomState> {
     const code = normalizeRoomCode(codeRaw);
     const room = await this.loadRoomByCode(code);
@@ -852,6 +1294,23 @@ export class MultiplayerService {
     });
   }
 
+  /**
+   * Implements the connect socket method.
+   *
+   * Parameters:
+   * - `codeRaw` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `socket` (`WebSocket`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   async connectSocket(
     codeRaw: string,
     userId: string,
@@ -924,6 +1383,23 @@ export class MultiplayerService {
     this.broadcastSnapshot(hydrated.id, snapshot);
   }
 
+  /**
+   * Implements the disconnect socket method.
+   *
+   * Parameters:
+   * - `codeRaw` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `socket` (`WebSocket`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async disconnectSocket(codeRaw: string, userId: string, socket: WebSocket) {
     const code = normalizeRoomCode(codeRaw);
     const room = await this.loadRoomByCode(code).catch(() => null);
@@ -988,6 +1464,22 @@ export class MultiplayerService {
     this.broadcastSnapshot(room.id, snapshot);
   }
 
+  /**
+   * Handles the action workflow.
+   *
+   * Parameters:
+   * - `codeRaw` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `action` (`Action`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   async handleAction(codeRaw: string, userId: string, action: Action) {
     const code = normalizeRoomCode(codeRaw);
     if (action.type === "update-draft") {
@@ -1077,9 +1569,41 @@ export class MultiplayerService {
     });
   }
 
+  /**
+   * Implements the attach method.
+   *
+   * Parameters:
+   * - `server` (`HttpServer`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+   * - Tokenizes or pattern-matches strings to derive comparable values.
+   * - Transforms credentials or session data into hashes, tokens, or cookies.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   attach(server: HttpServer) {
     const wss = new WebSocketServer({ noServer: true });
     this.wss = wss;
+    /**
+     * Handles the upgrade event callback registered on server.
+     *
+     * Parameters:
+     * - `req` (`IncomingMessage`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+     * - `socket` (`Duplex`): Caller-provided value consumed by the function body.
+     * - `head` (`NonSharedBuffer`): Caller-provided value consumed by the function body.
+     *
+     * Output:
+     * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+     *
+     * Data transformations:
+     * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+     * - Tokenizes or pattern-matches strings to derive comparable values.
+     * - Transforms credentials or session data into hashes, tokens, or cookies.
+     * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+     */
     server.on("upgrade", async (req, socket, head) => {
       const url = new URL(req.url ?? "/", "http://localhost");
       if (url.pathname !== "/api/multiplayer/ws") {
@@ -1119,6 +1643,20 @@ export class MultiplayerService {
       });
     });
 
+    /**
+     * Handles the connection event callback registered on wss.
+     *
+     * Parameters:
+     * - `socket` (`WebSocket`): Caller-provided value consumed by the function body.
+     * - `code` (`string`): Code string normalized or validated before lookup.
+     * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+     */
     wss.on("connection", (socket: WebSocket, code: string, userId: string) => {
       void this.connectSocket(code, userId, socket).catch((err) => {
         this.sendJson(socket, {
@@ -1127,15 +1665,56 @@ export class MultiplayerService {
         });
         socket.close(1008, "unauthorized");
       });
+      /**
+       * Handles the message event callback registered on socket.
+       *
+       * Parameters:
+       * - `raw` (`RawData`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+       *
+       * Output:
+       * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+       *
+       * Data transformations:
+       * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+       */
       socket.on("message", (raw: RawData) => {
         void this.handleSocketMessage(socket, code, userId, raw);
       });
+      /**
+       * Handles the close event callback registered on socket.
+       *
+       * Parameters:
+       * - None.
+       *
+       * Output:
+       * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+       *
+       * Data transformations:
+       * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+       */
       socket.on("close", () => {
         void this.disconnectSocket(code, userId, socket);
       });
     });
   }
 
+  /**
+   * Handles the socket message workflow.
+   *
+   * Parameters:
+   * - `socket` (`WebSocket`): Caller-provided value consumed by the function body.
+   * - `code` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `raw` (`RawData`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Validates unknown input with schema/runtime checks before using narrowed values.
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   private async handleSocketMessage(
     socket: WebSocket,
     code: string,
@@ -1164,6 +1743,21 @@ export class MultiplayerService {
     }
   }
 
+  /**
+   * Handles the draft update workflow.
+   *
+   * Parameters:
+   * - `code` (`string`): Code string normalized or validated before lookup.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `valueRaw` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   */
   private async handleDraftUpdate(
     code: string,
     userId: string,
@@ -1213,6 +1807,18 @@ export class MultiplayerService {
     return personalizeRoom(snapshot, userId, runtime);
   }
 
+  /**
+   * Implements the get runtime method.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Runtime`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   */
   private getRuntime(roomId: string): Runtime {
     const existing = this.runtimes.get(roomId);
     if (existing) return existing;
@@ -1226,6 +1832,20 @@ export class MultiplayerService {
     return runtime;
   }
 
+  /**
+   * Builds room record data.
+   *
+   * Parameters:
+   * - `hostUserId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `board` (`SharedEpisode`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<RoomWithPlayers>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   private async createRoomRecord(
     hostUserId: string,
     board: SharedEpisode,
@@ -1257,6 +1877,18 @@ export class MultiplayerService {
     throw new Error("failed to allocate room code");
   }
 
+  /**
+   * Loads room by code data.
+   *
+   * Parameters:
+   * - `code` (`string`): Code string normalized or validated before lookup.
+   *
+   * Output:
+   * - `Promise<RoomWithPlayers>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   */
   private async loadRoomByCode(code: string): Promise<RoomWithPlayers> {
     const room = await prisma.multiplayerRoom.findUnique({
       where: { code },
@@ -1268,6 +1900,18 @@ export class MultiplayerService {
     return room;
   }
 
+  /**
+   * Implements the ensure room runtime method.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<RoomWithPlayers>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   private async ensureRoomRuntime(room: RoomWithPlayers): Promise<RoomWithPlayers> {
     const state = getRoomState(room);
     this.scheduleRoom(room, state);
@@ -1277,6 +1921,21 @@ export class MultiplayerService {
     return room;
   }
 
+  /**
+   * Implements the schedule room method.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   private scheduleRoom(room: RoomWithPlayers, state: RoomState) {
     this.clearMainTimer(room.id);
     if (state.paused) return;
@@ -1284,11 +1943,39 @@ export class MultiplayerService {
     if (!deadlineAt) return;
     const delay = Math.max(0, new Date(deadlineAt).getTime() - Date.now());
     const runtime = this.getRuntime(room.id);
+    /**
+     * Runs the delayed setTimeout timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     runtime.mainTimer = setTimeout(() => {
       void this.handleTimer(room.code, room.id);
     }, delay);
   }
 
+  /**
+   * Implements the schedule host grace method.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `code` (`string`): Code string normalized or validated before lookup.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   private scheduleHostGrace(roomId: string, code: string, state: RoomState) {
     this.clearHostGraceTimer(roomId);
     if (!state.hostReconnectDeadlineAt) return;
@@ -1297,11 +1984,35 @@ export class MultiplayerService {
       new Date(state.hostReconnectDeadlineAt).getTime() - Date.now(),
     );
     const runtime = this.getRuntime(roomId);
+    /**
+     * Runs the delayed setTimeout timer callback.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     runtime.hostGraceTimer = setTimeout(() => {
       void this.handleHostGraceExpiry(roomId, code);
     }, delay);
   }
 
+  /**
+   * Clears main timer state or resources.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   private clearMainTimer(roomId: string) {
     const runtime = this.runtimes.get(roomId);
     if (!runtime?.mainTimer) return;
@@ -1309,6 +2020,18 @@ export class MultiplayerService {
     runtime.mainTimer = null;
   }
 
+  /**
+   * Clears host grace timer state or resources.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   private clearHostGraceTimer(roomId: string) {
     const runtime = this.runtimes.get(roomId);
     if (!runtime?.hostGraceTimer) return;
@@ -1316,6 +2039,22 @@ export class MultiplayerService {
     runtime.hostGraceTimer = null;
   }
 
+  /**
+   * Handles the timer workflow.
+   *
+   * Parameters:
+   * - `code` (`string`): Code string normalized or validated before lookup.
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   private async handleTimer(code: string, roomId: string) {
     await this.withRoomLock(roomId, async () => {
       const room = await this.loadRoomByCode(code).catch(() => null);
@@ -1398,6 +2137,19 @@ export class MultiplayerService {
     });
   }
 
+  /**
+   * Handles the host grace expiry workflow.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `code` (`string`): Code string normalized or validated before lookup.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   private async handleHostGraceExpiry(roomId: string, code: string) {
     await this.withRoomLock(roomId, async () => {
       const room = await this.loadRoomByCode(code).catch(() => null);
@@ -1415,6 +2167,21 @@ export class MultiplayerService {
     });
   }
 
+  /**
+   * Handles the select clue workflow.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `clueId` (`number`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `{ state: RoomState; status: RoomStatus }`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   private handleSelectClue(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1473,6 +2240,20 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Handles the buzz workflow.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `{ state: RoomState; status: RoomStatus }`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   private handleBuzz(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1507,6 +2288,23 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Handles the submit wager workflow.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `wager` (`number`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<{ state: RoomState; status: RoomStatus }>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   private async handleSubmitWager(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1590,6 +2388,25 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Handles the submit answer workflow.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `answer` (`string`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<{ state: RoomState; status: RoomStatus }>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   private async handleSubmitAnswer(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1712,6 +2529,21 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Handles the advance workflow.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `{ state: RoomState; status: RoomStatus }`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   private handleAdvance(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1815,6 +2647,18 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Implements the advance final reveal method.
+   *
+   * Parameters:
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   *
+   * Output:
+   * - `{ state: RoomState; status: RoomStatus }`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   private advanceFinalReveal(
     state: RoomState,
   ): { state: RoomState; status: RoomStatus } {
@@ -1882,6 +2726,20 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Implements the pass clue on no buzz method.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   *
+   * Output:
+   * - `Promise<RoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   */
   private async passClueOnNoBuzz(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1917,6 +2775,19 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Implements the timeout final wagers method.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   *
+   * Output:
+   * - `Promise<{ state: RoomState; status: RoomStatus }>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   private async timeoutFinalWagers(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1945,6 +2816,22 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Implements the resolve final answers method.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   *
+   * Output:
+   * - `Promise<{ state: RoomState; status: RoomStatus }>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Transforms collections with map/filter/reduce/sort/search operations.
+   * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   private async resolveFinalAnswers(
     room: RoomWithPlayers,
     state: RoomState,
@@ -2002,6 +2889,21 @@ export class MultiplayerService {
     };
   }
 
+  /**
+   * Implements the abandon room method.
+   *
+   * Parameters:
+   * - `room` (`RoomWithPlayers`): Caller-provided value consumed by the function body.
+   * - `state` (`RoomState`): State object copied or narrowed before a new state value is produced.
+   * - `reason` (`string`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<PublicRoomState>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Reads from or writes to Prisma models and reshapes database rows into application data.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   private async abandonRoom(
     room: RoomWithPlayers,
     state: RoomState,
@@ -2032,6 +2934,19 @@ export class MultiplayerService {
     );
   }
 
+  /**
+   * Implements the broadcast snapshot method.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `snapshot` (`PublicRoomState`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   */
   private broadcastSnapshot(roomId: string, snapshot: PublicRoomState) {
     const runtime = this.runtimes.get(roomId);
     if (!runtime) return;
@@ -2048,6 +2963,19 @@ export class MultiplayerService {
     }
   }
 
+  /**
+   * Implements the close user sockets method.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   private closeUserSockets(roomId: string, userId: string) {
     const runtime = this.runtimes.get(roomId);
     const sockets = runtime?.clients.get(userId);
@@ -2058,19 +2986,70 @@ export class MultiplayerService {
     runtime?.clients.delete(userId);
   }
 
+  /**
+   * Implements the send json method.
+   *
+   * Parameters:
+   * - `socket` (`WebSocket`): Caller-provided value consumed by the function body.
+   * - `payload` (`unknown`): Structured payload validated and projected into the required output shape.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+   */
   private sendJson(socket: WebSocket, payload: unknown) {
     if (socket.readyState !== WebSocket.OPEN) return;
     socket.send(JSON.stringify(payload));
   }
 
+  /**
+   * Implements the http error method.
+   *
+   * Parameters:
+   * - `status` (`number`): Caller-provided value consumed by the function body.
+   * - `message` (`string`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Error & { status?: number; }`: Numeric value calculated from inputs, state, or persisted data.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   private httpError(status: number, message: string) {
     const err = new Error(message) as Error & { status?: number };
     err.status = status;
     return err;
   }
 
+  /**
+   * Implements the with room lock method.
+   *
+   * Parameters:
+   * - `roomId` (`string`): Identifier value used to look up, compare, or persist related records.
+   * - `work` (`() => Promise<T>`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `Promise<T>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   private async withRoomLock<T>(roomId: string, work: () => Promise<T>): Promise<T> {
     const previous = this.roomLocks.get(roomId) ?? Promise.resolve();
+    /**
+     * Implements the release function.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     let release: () => void = () => {};
     const barrier = new Promise<void>((resolve) => {
       release = resolve;

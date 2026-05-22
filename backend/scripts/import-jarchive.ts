@@ -10,6 +10,18 @@ const ROUND_MAP: Record<string, Round> = {
   "3": Round.FINAL_JEOPARDY,
 };
 
+/**
+ * Implements the strip html function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ */
 function stripHtml(s: string): string {
   return s
     .replace(/<[^>]+>/g, "")
@@ -21,11 +33,41 @@ function stripHtml(s: string): string {
     .trim();
 }
 
+/**
+ * Implements the looks like media function.
+ *
+ * Parameters:
+ * - `rawAnswer` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function looksLikeMedia(rawAnswer: string): boolean {
   // The jwolle1 dataset embeds <a href=...> for video/audio media clues.
   return /<a\s+href=/i.test(rawAnswer) || /\(audio\s+clue\s*\)/i.test(rawAnswer);
 }
 
+/**
+ * Implements the main function.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 async function main() {
   const path = process.argv[2] || "/data/combined.tsv";
   if (!fs.existsSync(path)) {

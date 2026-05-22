@@ -29,11 +29,42 @@ type Stats = {
   };
 };
 
+/**
+ * Renders the Dashboard React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ * - Converts component state and props into JSX UI output.
+ */
 export function Dashboard() {
   useDocumentTitle("Dashboard");
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState(false);
 
+  /**
+   * Loads load data.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   const load = useCallback(() => {
     setError(false);
     setStats(null);
@@ -43,6 +74,18 @@ export function Dashboard() {
       .catch(() => setError(true));
   }, []);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     load();
   }, [load]);
@@ -171,6 +214,18 @@ export function Dashboard() {
   );
 }
 
+/**
+ * Renders the Stat React component.
+ *
+ * Parameters:
+ * - `{ label, value, highlight }` (`{ label: string; value: string | number; highlight?: boolean }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function Stat({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
   return (
     <div className={`rounded p-4 ${highlight ? "bg-jeopardy-gold/20 border border-jeopardy-gold/40" : "bg-white/5"}`}>

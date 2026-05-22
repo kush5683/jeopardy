@@ -72,6 +72,18 @@ const FEATURES: Feature[] = [
   },
 ];
 
+/**
+ * Renders the Home React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 export function Home() {
   useDocumentTitle(null);
   const { user } = useAuth();
@@ -146,6 +158,18 @@ export function Home() {
   );
 }
 
+/**
+ * Renders the FeatureCard React component.
+ *
+ * Parameters:
+ * - `{ feature, locked }` (`{ feature: Feature; locked: boolean }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function FeatureCard({ feature, locked }: { feature: Feature; locked: boolean }) {
   // Locked cards land on /login (with returnTo) so the user comes straight back
   // after auth.

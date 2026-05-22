@@ -33,6 +33,21 @@ type FinalSave = {
 
 const FINAL_SAVE_KEY = "final-jeopardy-v1";
 
+/**
+ * Loads final save data.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `FinalSave | null`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function loadFinalSave(): FinalSave | null {
   try {
     const raw = localStorage.getItem(FINAL_SAVE_KEY);
@@ -45,6 +60,20 @@ function loadFinalSave(): FinalSave | null {
   return null;
 }
 
+/**
+ * Persists final data.
+ *
+ * Parameters:
+ * - `s` (`FinalSave`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function saveFinal(s: FinalSave): void {
   try {
     localStorage.setItem(FINAL_SAVE_KEY, JSON.stringify(s));
@@ -53,6 +82,23 @@ function saveFinal(s: FinalSave): void {
   }
 }
 
+/**
+ * Renders the FinalJeopardy React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function FinalJeopardy() {
   useDocumentTitle("Final Jeopardy!");
   const { user } = useAuth();
@@ -75,6 +121,18 @@ export function FinalJeopardy() {
   // before the user accidentally closes the tab.
   useUnloadGuard(phase.kind === "answer");
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   useEffect(() => {
     const saved = loadFinalSave();
     if (!saved) return;
@@ -89,11 +147,38 @@ export function FinalJeopardy() {
   }, []);
 
   // Kick off hint generation once the final clue is on screen.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     if (phase.kind !== "wager" && phase.kind !== "answer") return;
     void api.post(`/clues/${phase.clue.id}/hint/prepare`).catch(() => {});
   }, [phase.kind === "wager" || phase.kind === "answer" ? phase.clue.id : null]);
 
+  /**
+   * Implements the start round function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   async function startRound() {
     setStartError(null);
     setForfeitNotice(null);
@@ -111,6 +196,19 @@ export function FinalJeopardy() {
     }
   }
 
+  /**
+   * Implements the confirm wager function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   function confirmWager(e: FormEvent) {
     e.preventDefault();
     if (phase.kind !== "wager") return;
@@ -127,6 +225,21 @@ export function FinalJeopardy() {
     tts.speak(`Final Jeopardy category: ${phase.clue.category}. ${phase.clue.question}`);
   }
 
+  /**
+   * Implements the submit final answer function.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   async function submitFinalAnswer(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -161,11 +274,47 @@ export function FinalJeopardy() {
     }
   }
 
+  /**
+   * Handles the timeout workflow.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   function handleTimeout() {
     if (phase.kind !== "answer") return;
+    /**
+     * Implements the prevent default function.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+     */
     submitFinalAnswer({ preventDefault: () => {} } as FormEvent);
   }
 
+  /**
+   * Implements the reset function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   function reset() {
     tts.cancel();
     setPhase({ kind: "stake" });
@@ -343,6 +492,18 @@ export function FinalJeopardy() {
 }
 
 // Wager coach — show the three classic Final wagering brackets given a stake.
+/**
+ * Renders the WagerCoach React component.
+ *
+ * Parameters:
+ * - `{ stake, category }` (`{ stake: number; category: string }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function WagerCoach({ stake, category }: { stake: number; category: string }) {
   const half = Math.floor(stake / 2);
   const oneThird = Math.floor(stake / 3);

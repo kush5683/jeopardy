@@ -32,6 +32,21 @@ const GUEST_KEY_PREFIX = "daily-guest:";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const COUNTDOWN_TICK_MS = 1000;
 
+/**
+ * Loads guest progress data.
+ *
+ * Parameters:
+ * - `date` (`string`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `GuestProgress | null`: Returned value produced by the function body.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function loadGuestProgress(date: string): GuestProgress | null {
   try {
     const raw = localStorage.getItem(GUEST_KEY_PREFIX + date);
@@ -50,6 +65,21 @@ function loadGuestProgress(date: string): GuestProgress | null {
   }
 }
 
+/**
+ * Persists guest progress data.
+ *
+ * Parameters:
+ * - `date` (`string`): Date-like value converted into the canonical date or timestamp representation.
+ * - `progress` (`GuestProgress`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 function saveGuestProgress(date: string, progress: GuestProgress): void {
   if (!date) return;
   try {
@@ -60,12 +90,38 @@ function saveGuestProgress(date: string, progress: GuestProgress): void {
   }
 }
 
+/**
+ * Implements the get next daily reset at function.
+ *
+ * Parameters:
+ * - `date` (`string`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `number | null`: Numeric value calculated from inputs, state, or persisted data.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ */
 function getNextDailyResetAt(date: string): number | null {
   const currentSetStart = Date.parse(`${date}T00:00:00.000Z`);
   if (Number.isNaN(currentSetStart)) return null;
   return currentSetStart + DAY_MS;
 }
 
+/**
+ * Implements the format countdown function.
+ *
+ * Parameters:
+ * - `ms` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function formatCountdown(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -74,21 +130,76 @@ function formatCountdown(ms: number): string {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
+/**
+ * Implements the utc today key function.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 function utcTodayKey(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Implements the valid date key function.
+ *
+ * Parameters:
+ * - `value` (`string | undefined`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ */
 function validDateKey(value: string | undefined): string {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
 
+/**
+ * Implements the add days function.
+ *
+ * Parameters:
+ * - `date` (`string`): Date-like value converted into the canonical date or timestamp representation.
+ * - `days` (`number`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 function addDays(date: string, days: number): string {
   const time = Date.parse(`${date}T00:00:00.000Z`);
   if (Number.isNaN(time)) return date;
   return new Date(time + days * DAY_MS).toISOString().slice(0, 10);
 }
 
+/**
+ * Renders the Daily React component.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ * - Converts component state and props into JSX UI output.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export function Daily() {
   useDocumentTitle("Daily");
   const { user } = useAuth();
@@ -115,6 +226,21 @@ export function Daily() {
   // submission, but in-flight typing isn't.
   useUnloadGuard(!done && clues.length > 0 && idx < clues.length);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     let cancelled = false;
     setDate("");
@@ -199,18 +325,58 @@ export function Daily() {
   // button activates it naturally — more reliable than a window keydown listener,
   // which can be defeated if something else captures focus (e.g. a Wiki link in
   // the blurb below the result).
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   useEffect(() => {
     if (result) nextBtnRef.current?.focus();
   }, [result]);
 
   // Kick off hint generation in the background as soon as a clue is shown,
   // so it's likely cached by the time the user finishes answering.
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+   */
   useEffect(() => {
     const c = clues[idx];
     if (!c) return;
     void api.post(`/clues/${c.id}/hint/prepare`).catch(() => {});
   }, [clues, idx]);
 
+  /**
+   * Handles the submit event.
+   *
+   * Parameters:
+   * - `e` (`FormEvent`): Browser or React event object read for form, keyboard, or pointer state.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -256,6 +422,20 @@ export function Daily() {
     }
   }
 
+  /**
+   * Implements the next clue function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Fetches remote/API data and projects the response into local state or return values.
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   */
   async function nextClue() {
     setResult(null);
     setAnswer("");
@@ -401,6 +581,18 @@ export function Daily() {
   );
 }
 
+/**
+ * Renders the DailyDateNav React component.
+ *
+ * Parameters:
+ * - `{ date, onJump }` (`{ date: string; onJump: (date: string) => void }`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function DailyDateNav({ date, onJump }: { date: string; onJump: (date: string) => void }) {
   const today = utcTodayKey();
   const isToday = date === today;
@@ -444,6 +636,18 @@ function DailyDateNav({ date, onJump }: { date: string; onJump: (date: string) =
   );
 }
 
+/**
+ * Renders the Stat React component.
+ *
+ * Parameters:
+ * - `{ label, value, highlight }` (`{ label: string; value: string | number; highlight?: boolean }`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 function Stat({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
   return (
     <div className={`rounded p-3 sm:p-4 min-w-0 ${highlight ? "bg-jeopardy-gold/20 border border-jeopardy-gold/40" : "bg-white/5"}`}>
@@ -453,9 +657,37 @@ function Stat({ label, value, highlight }: { label: string; value: string | numb
   );
 }
 
+/**
+ * Renders the NextSetCountdown React component.
+ *
+ * Parameters:
+ * - `{ date }` (`{ date: string }`): Date-like value converted into the canonical date or timestamp representation.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 function NextSetCountdown({ date }: { date: string }) {
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
 
+  /**
+   * Runs the useEffect callback for the surrounding component lifecycle.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `() => void`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+   * - Computes numeric bounds, random values, or cryptographic tokens.
+   */
   useEffect(() => {
     const nextResetAt = getNextDailyResetAt(date);
     if (nextResetAt === null) {
@@ -463,6 +695,20 @@ function NextSetCountdown({ date }: { date: string }) {
       return;
     }
 
+    /**
+     * Implements the sync remaining function.
+     *
+     * Parameters:
+     * - None.
+     *
+     * Output:
+     * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+     *
+     * Data transformations:
+     * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+     * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+     * - Computes numeric bounds, random values, or cryptographic tokens.
+     */
     const syncRemaining = () => {
       setRemainingMs(Math.max(0, nextResetAt - Date.now()));
     };
@@ -487,6 +733,19 @@ function NextSetCountdown({ date }: { date: string }) {
   );
 }
 
+/**
+ * Renders the Leaderboard React component.
+ *
+ * Parameters:
+ * - `{ rows, userId }` (`{ rows: Row[]; userId: string | null }`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Element`: Rendered React UI derived from current props, state, and fetched data.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Converts component state and props into JSX UI output.
+ */
 function Leaderboard({ rows, userId }: { rows: Row[]; userId: string | null }) {
   if (rows.length === 0) {
     return <p className="text-white/60 text-sm">Be the first to finish today's challenge.</p>;

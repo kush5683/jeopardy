@@ -9,19 +9,68 @@ type State = { error: Error | null };
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
 
+  /**
+   * Implements the get derived state from error method.
+   *
+   * Parameters:
+   * - `error` (`Error`): Error value inspected or forwarded by the failure path.
+   *
+   * Output:
+   * - `State`: Returned value produced by the function body.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   static getDerivedStateFromError(error: Error): State {
     return { error };
   }
 
+  /**
+   * Implements the component did catch method.
+   *
+   * Parameters:
+   * - `error` (`Error`): Error value inspected or forwarded by the failure path.
+   * - `info` (`ErrorInfo`): Caller-provided value consumed by the function body.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   componentDidCatch(error: Error, info: ErrorInfo): void {
     // Log to console so devtools shows the stack; no remote telemetry wired yet.
     console.error("ErrorBoundary caught:", error, info.componentStack);
   }
 
+  /**
+   * Implements the reset function.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+   *
+   * Data transformations:
+   * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+   */
   reset = () => {
     this.setState({ error: null });
   };
 
+  /**
+   * Implements the render method.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `string | number | boolean | Element | Iterable<ReactNode>`: Rendered React UI derived from current props, state, and fetched data.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   render() {
     if (!this.state.error) return this.props.children;
     return (

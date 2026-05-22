@@ -7,6 +7,14 @@ cd "$ROOT_DIR"
 YES=0
 DRY_RUN=0
 
+# Function: usage
+# Parameters:
+#   None.
+# Output:
+#   Writes the command usage, affected tables, connection strategy, and option
+#   descriptions to stdout.
+# Data transformations:
+#   Emits a static heredoc without changing shell state or external data.
 usage() {
   cat <<'EOF'
 Usage: scripts/reset-leaderboard-stats.sh [--dry-run] [--yes]
@@ -84,6 +92,16 @@ EOF
   exit 1
 fi
 
+# Function: run_psql
+# Parameters:
+#   $1 (string): SQL text to execute against the configured Postgres target.
+# Output:
+#   Streams psql output to stdout/stderr and exits nonzero when psql reports an
+#   error because ON_ERROR_STOP is enabled.
+# Data transformations:
+#   Pipes the SQL string into either local psql via DATABASE_URL or docker
+#   compose's db service, preserving SQL text while converting shell variables
+#   into the selected connection command and psql flags.
 run_psql() {
   local sql="$1"
   if [[ "$PSQL_MODE" == "database-url" ]]; then

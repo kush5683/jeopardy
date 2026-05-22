@@ -1,7 +1,31 @@
 import { describe, it, expect } from "vitest";
 import { newAgent, registerUser, seedClue, authHeader } from "./helpers";
 
+/**
+ * Runs the describe "buzzer session flow" test callback.
+ *
+ * Parameters:
+ * - None.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 describe("buzzer session flow", () => {
+  /**
+   * Runs the it "server recomputes totals from tagged responses, ignoring client claims" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("server recomputes totals from tagged responses, ignoring client claims", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -51,6 +75,18 @@ describe("buzzer session flow", () => {
     expect(finish.body.session.avgResponseMs).toBe(1500);
   });
 
+  /**
+   * Runs the it "rejects replay of same sessionId" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("rejects replay of same sessionId", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -68,6 +104,18 @@ describe("buzzer session flow", () => {
     await agent.post("/api/buzzer/finish").set(authHeader(token)).send({ sessionId }).expect(409);
   });
 
+  /**
+   * Runs the it "rejects finish with no responses for the session" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("rejects finish with no responses for the session", async () => {
     const agent = newAgent();
     const { token } = await registerUser(agent);
@@ -79,6 +127,18 @@ describe("buzzer session flow", () => {
       .expect(400);
   });
 
+  /**
+   * Runs the it "only counts responses tagged with the matching sessionId for the current user" test callback.
+   *
+   * Parameters:
+   * - None.
+   *
+   * Output:
+   * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+   *
+   * Data transformations:
+   * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+   */
   it("only counts responses tagged with the matching sessionId for the current user", async () => {
     const agent = newAgent();
     const a = await registerUser(agent);

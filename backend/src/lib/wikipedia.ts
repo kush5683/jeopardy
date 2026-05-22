@@ -25,6 +25,22 @@ export type WikiResult = {
 
 const headers = { "User-Agent": UA, Accept: "application/json" };
 
+/**
+ * Loads redirects data.
+ *
+ * Parameters:
+ * - `title` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `Promise<string[]>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 async function fetchRedirects(title: string): Promise<string[]> {
   try {
     const url = `https://en.wikipedia.org/w/api.php?action=query&prop=redirects&titles=${encodeURIComponent(title)}&rdlimit=500&format=json&formatversion=2`;
@@ -43,6 +59,22 @@ async function fetchRedirects(title: string): Promise<string[]> {
 // Wikidata aliases — structured, human-curated alternate names for an entity.
 // Covers abbreviations like "TB" that Wikipedia redirects miss (because "TB"
 // itself is a disambiguation page on Wikipedia, not a redirect to Tuberculosis).
+/**
+ * Loads wikidata aliases data.
+ *
+ * Parameters:
+ * - `qid` (`string`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Promise<string[]>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 async function fetchWikidataAliases(qid: string): Promise<string[]> {
   try {
     const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${encodeURIComponent(qid)}&props=aliases|labels&languages=en&format=json`;
@@ -82,6 +114,22 @@ const SUBTOPIC_PATTERNS = [
   /\bdisambiguation\b/i,
 ];
 
+/**
+ * Implements the filter aliases function.
+ *
+ * Parameters:
+ * - `candidates` (`string[]`): Identifier value used to look up, compare, or persist related records.
+ * - `canonicalForLen` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string[]`: Collection value reshaped from the input data.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Copies or reshapes arrays/objects into lookup maps, sets, or immutable derived values.
+ */
 function filterAliases(candidates: string[], canonicalForLen: string): string[] {
   const seen = new Set<string>();
   const canonWordCount = canonicalForLen.trim().split(/\s+/).length;
@@ -107,6 +155,20 @@ function filterAliases(candidates: string[], canonicalForLen: string): string[] 
 // Heuristic: canonicals like "1, 2, 4 & 8", "42", "5/8 inch", "pi r squared"
 // aren't real entities, and Wikipedia search returns garbage for them (asteroids,
 // random pages). Skip the wiki fetch for these.
+/**
+ * Implements the looks like entity function.
+ *
+ * Parameters:
+ * - `s` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function looksLikeEntity(s: string): boolean {
   const stripped = s.replace(/[^a-zA-Z\s]/g, " ").replace(/\s+/g, " ").trim();
   if (!stripped) return false;
@@ -129,6 +191,21 @@ const RELEVANCE_STOPWORDS = new Set([
   "on", "at", "to", "for", "by", "with", "from", "as", "this", "that",
 ]);
 
+/**
+ * Checks the lead relevant condition.
+ *
+ * Parameters:
+ * - `canonical` (`string`): Caller-provided value consumed by the function body.
+ * - `extract` (`string`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `boolean`: Boolean decision value derived from validation, comparison, or state checks.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function isLeadRelevant(canonical: string, extract: string): boolean {
   // Take roughly the first sentence (or first 240 chars if no sentence break).
   const lead = (extract.split(/\.\s+/)[0] || extract.slice(0, 240)).toLowerCase();
@@ -145,6 +222,20 @@ function isLeadRelevant(canonical: string, extract: string): boolean {
   return canonicalWords.some((w) => lead.includes(w));
 }
 
+/**
+ * Implements the category hint function.
+ *
+ * Parameters:
+ * - `category` (`string | undefined`): Caller-provided value consumed by the function body.
+ *
+ * Output:
+ * - `string`: String value normalized or composed from the inputs.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ */
 function categoryHint(category: string | undefined): string {
   if (!category) return "";
   return category
@@ -155,6 +246,25 @@ function categoryHint(category: string | undefined): string {
     .join(" ");
 }
 
+/**
+ * Loads wikipedia data.
+ *
+ * Parameters:
+ * - `rawQuery` (`string`): Untrusted or loosely typed input normalized before the rest of the function uses it.
+ * - `category` (`string` optional): Caller-provided value consumed by the function body.
+ * - `clueText` (`string` optional): Clue data read from API or database rows and reshaped for gameplay.
+ *
+ * Output:
+ * - `Promise<WikiResult>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Fetches remote/API data and projects the response into local state or return values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 export async function fetchWikipedia(
   rawQuery: string,
   category?: string,
@@ -176,6 +286,20 @@ export async function fetchWikipedia(
     // answer if the contextual search returns nothing (Wikipedia is strict about
     // multi-keyword matching — "supermax jailhouse" returns no results even
     // though "supermax" alone lands on "Supermax prison").
+    /**
+     * Implements the run opensearch function.
+     *
+     * Parameters:
+     * - `q` (`string`): Caller-provided value consumed by the function body.
+     *
+     * Output:
+     * - `Promise<{ titles: string[]; urls: string[] } | null>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+     *
+     * Data transformations:
+     * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+     * - Fetches remote/API data and projects the response into local state or return values.
+     * - Transforms credentials or session data into hashes, tokens, or cookies.
+     */
     async function runOpensearch(q: string): Promise<{ titles: string[]; urls: string[] } | null> {
       const url = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(q)}&limit=3&format=json`;
       const r = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });

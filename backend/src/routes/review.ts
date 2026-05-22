@@ -11,6 +11,23 @@ export const reviewRouter = Router();
 const INTERVAL_GROWTH = 2.5;
 const MAX_INTERVAL_DAYS = 90;
 
+/**
+ * Handles the GET /due route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Transforms collections with map/filter/reduce/sort/search operations.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ */
 reviewRouter.get("/due", requireAuth, async (req: AuthedRequest, res) => {
   const limit = Math.min(Number(req.query.limit ?? 20), 100);
   const now = new Date();
@@ -34,6 +51,21 @@ reviewRouter.get("/due", requireAuth, async (req: AuthedRequest, res) => {
   });
 });
 
+/**
+ * Handles the GET /stats route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 reviewRouter.get("/stats", requireAuth, async (req: AuthedRequest, res) => {
   const now = new Date();
   const [due, total, scheduled] = await Promise.all([
@@ -59,6 +91,24 @@ const resultSchema = z.object({
   correct: z.boolean(),
 });
 
+/**
+ * Handles the POST /result route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ * - Computes numeric bounds, random values, or cryptographic tokens.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 reviewRouter.post("/result", requireAuth, async (req: AuthedRequest, res) => {
   const parsed = resultSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -99,6 +149,20 @@ reviewRouter.post("/result", requireAuth, async (req: AuthedRequest, res) => {
 });
 
 // Helper called from /clues/submit to enroll a wrong clue into the review queue.
+/**
+ * Implements the schedule review on wrong function.
+ *
+ * Parameters:
+ * - `userId` (`string`): Identifier value used to look up, compare, or persist related records.
+ * - `clueId` (`number`): Identifier value used to look up, compare, or persist related records.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts dates or deadlines between Date objects, ISO strings, day keys, and millisecond timestamps.
+ */
 export async function scheduleReviewOnWrong(userId: string, clueId: number) {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   await prisma.reviewSchedule.upsert({

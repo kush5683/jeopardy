@@ -14,6 +14,20 @@ import { authLimiter } from "../middleware/rateLimit";
 
 export const authRouter = Router();
 
+/**
+ * Handles the registered middleware callback.
+ *
+ * Parameters:
+ * - `_req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ * - `next` (`NextFunction`): Express continuation callback for passing control to the next middleware.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Performs control-flow checks and returns or mutates values without additional structural transformation.
+ */
 authRouter.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");
   res.set("Pragma", "no-cache");
@@ -26,6 +40,25 @@ const registerSchema = z.object({
   displayName: z.string().min(1).max(40),
 });
 
+/**
+ * Handles the POST /register route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 authRouter.post("/register", authLimiter, async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -55,6 +88,25 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
+/**
+ * Handles the POST /login route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 authRouter.post("/login", authLimiter, async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -82,6 +134,25 @@ authRouter.post("/login", authLimiter, async (req, res) => {
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
+/**
+ * Handles the POST /google route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Tokenizes or pattern-matches strings to derive comparable values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Updates application/browser state, cookies, or persistent browser storage from computed values.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 authRouter.post("/google", authLimiter, async (req, res) => {
   if (!googleClient || !googleClientId) {
     res.status(503).json({ error: "google sso not configured" });
@@ -133,15 +204,57 @@ authRouter.post("/google", authLimiter, async (req, res) => {
   res.json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
 });
 
+/**
+ * Handles the GET /config route or middleware callback.
+ *
+ * Parameters:
+ * - `_req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): Caller-provided value consumed by the function body.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ */
 authRouter.get("/config", (_req, res) => {
   res.json({ googleClientId: googleClientId || null });
 });
 
+/**
+ * Handles the POST /logout route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`Request<{}, any, any, ParsedQs, Record<string, any>>`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `void`: No direct value; effects are applied through state, response objects, timers, or other side-effect targets.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ */
 authRouter.post("/logout", (req, res) => {
   clearAuthCookie(req, res);
   res.json({ ok: true });
 });
 
+/**
+ * Handles the GET /me route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.userId! },
@@ -175,6 +288,23 @@ const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(40),
 });
 
+/**
+ * Handles the PATCH /me route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Normalizes strings by trimming, changing case, replacing characters, or canonicalizing text.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 authRouter.patch("/me", requireAuth, async (req: AuthedRequest, res) => {
   const parsed = updateProfileSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -194,6 +324,23 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8),
 });
 
+/**
+ * Handles the POST /change-password route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Transforms credentials or session data into hashes, tokens, or cookies.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 authRouter.post(
   "/change-password",
   authLimiter,
@@ -233,6 +380,22 @@ const deleteAccountSchema = z.object({
   confirm: z.literal("DELETE"),
 });
 
+/**
+ * Handles the DELETE /me route or middleware callback.
+ *
+ * Parameters:
+ * - `req` (`AuthedRequest`): HTTP request input carrying route params, query values, body data, cookies, and auth context as applicable.
+ * - `res` (`Response<any, Record<string, any>, number>`): HTTP response writer used to set status codes, headers, and JSON payloads.
+ *
+ * Output:
+ * - `Promise<void>`: Promise resolving after asynchronous work completes, usually after API/database/state side effects finish.
+ *
+ * Data transformations:
+ * - Validates unknown input with schema/runtime checks before using narrowed values.
+ * - Deserializes or serializes JSON for storage, API responses, or network boundaries.
+ * - Reads from or writes to Prisma models and reshapes database rows into application data.
+ * - Converts invalid states or failed operations into thrown errors or HTTP error responses.
+ */
 authRouter.delete("/me", requireAuth, async (req: AuthedRequest, res) => {
   // Defensive confirmation token in the body so a stray DELETE can't wipe
   // an account by mistake.
