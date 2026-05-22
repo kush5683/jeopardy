@@ -13,6 +13,60 @@ type Row = {
   bestCoryat: number;
 };
 
+type TooltipProps = {
+  label: string;
+  children: string;
+  align?: "left" | "right";
+};
+
+function InfoTooltip({ label, children, align = "left" }: TooltipProps) {
+  const placement =
+    align === "right"
+      ? "right-0 origin-top-right"
+      : "left-0 origin-top-left";
+
+  return (
+    <span className="group relative inline-flex align-middle">
+      <button
+        type="button"
+        aria-label={label}
+        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/30 text-[10px] font-bold leading-none text-white/70 hover:border-jeopardy-gold hover:text-jeopardy-gold focus:outline-none focus:ring-1 focus:ring-jeopardy-gold"
+      >
+        i
+      </button>
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute top-5 z-20 hidden w-64 rounded border border-white/10 bg-[#07091f] px-3 py-2 text-left text-xs font-normal normal-case leading-snug text-white shadow-xl group-hover:block group-focus-within:block ${placement}`}
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
+
+function HeaderWithTooltip({
+  children,
+  tooltip,
+  align = "left",
+}: {
+  children: string;
+  tooltip: string;
+  align?: "left" | "right";
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 ${
+        align === "right" ? "justify-end" : "justify-start"
+      }`}
+    >
+      {children}
+      <InfoTooltip label={`${children} explanation`} align={align}>
+        {tooltip}
+      </InfoTooltip>
+    </span>
+  );
+}
+
 export function Leaderboard() {
   useDocumentTitle("Leaderboard");
   const { user } = useAuth();
@@ -54,6 +108,7 @@ export function Leaderboard() {
         <div className="flex gap-1 bg-white/5 rounded p-1">
           <button
             onClick={() => setScope("global")}
+            title="Shows public rankings. Your position improves first through completed Buzzer rounds, then by answering more accurately."
             className={`px-3 py-2 rounded text-sm min-h-[36px] ${scope === "global" ? "bg-jeopardy-gold text-black" : ""}`}
           >
             Global
@@ -61,6 +116,11 @@ export function Leaderboard() {
           <button
             onClick={() => setScope("friends")}
             disabled={!user}
+            title={
+              user
+                ? "Shows the same ranking, limited to you and accepted friends."
+                : "Sign in to see the friends leaderboard."
+            }
             className={`px-3 py-2 rounded text-sm min-h-[36px] disabled:opacity-50 ${scope === "friends" ? "bg-jeopardy-gold text-black" : ""}`}
           >
             Friends
@@ -77,11 +137,40 @@ export function Leaderboard() {
           <table className="w-full text-sm">
             <thead className="bg-white/10 text-xs uppercase">
               <tr>
-                <th className="text-left px-2 sm:px-3 py-2">#</th>
-                <th className="text-left px-2 sm:px-3 py-2">Player</th>
-                <th className="text-right px-2 sm:px-3 py-2">Best Coryat</th>
-                <th className="text-right px-2 sm:px-3 py-2">Accuracy</th>
-                <th className="text-right px-2 sm:px-3 py-2 hidden sm:table-cell">Answered</th>
+                <th className="text-left px-2 sm:px-3 py-2">
+                  <HeaderWithTooltip tooltip="Rank is ordered by Best Coryat first, then Accuracy, then Answered. Finish strong Buzzer rounds to move up fastest; accurate clue answers break ties.">
+                    #
+                  </HeaderWithTooltip>
+                </th>
+                <th className="text-left px-2 sm:px-3 py-2">
+                  <HeaderWithTooltip tooltip="Player is the display name on the account. Update it in settings if you want a different name shown here.">
+                    Player
+                  </HeaderWithTooltip>
+                </th>
+                <th className="text-right px-2 sm:px-3 py-2">
+                  <HeaderWithTooltip
+                    align="right"
+                    tooltip="Best Coryat is your highest completed Buzzer round score. Correct answers add the clue value; wrong answers and timeouts subtract it."
+                  >
+                    Best Coryat
+                  </HeaderWithTooltip>
+                </th>
+                <th className="text-right px-2 sm:px-3 py-2">
+                  <HeaderWithTooltip
+                    align="right"
+                    tooltip="Accuracy is the percent of signed-in clue answers judged correct across Practice, Board, Final, Daily, Review, Buzzer, and multiplayer play."
+                  >
+                    Accuracy
+                  </HeaderWithTooltip>
+                </th>
+                <th className="text-right px-2 sm:px-3 py-2 hidden sm:table-cell">
+                  <HeaderWithTooltip
+                    align="right"
+                    tooltip="Answered is the number of signed-in clue answers submitted across play modes. Anonymous checks do not count."
+                  >
+                    Answered
+                  </HeaderWithTooltip>
+                </th>
               </tr>
             </thead>
             <tbody>

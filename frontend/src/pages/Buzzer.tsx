@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { WikiBlurb } from "../components/WikiBlurb";
 import { Hint } from "../components/Hint";
+import { TimerBar } from "../components/TimerBar";
 import { useMetaCategories } from "../hooks/useMetaCategories";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useUnloadGuard } from "../hooks/useUnloadGuard";
@@ -81,7 +82,6 @@ export function Buzzer() {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [answer, setAnswer] = useState("");
   const [results, setResults] = useState<Result[]>([]);
-  const [lockoutsThisClue, setLockoutsThisClue] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [pendingResume, setPendingResume] = useState<SavedRound | null>(null);
   const [markingResponseId, setMarkingResponseId] = useState<string | null>(null);
@@ -100,11 +100,21 @@ export function Buzzer() {
   const lightsOnAt = useRef<number>(0);
   const buzzedAt = useRef<number>(0);
   const sessionIdRef = useRef<string | null>(null);
+  const activeClueRef = useRef<{ id: number; index: number } | null>(null);
+  const lockoutsThisClueRef = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   function clearTimers() {
     timers.current.forEach((t) => clearTimeout(t));
     timers.current = [];
+  }
+
+  function consumeActiveClue(clueId: number, clueIndex: number): boolean {
+    const active = activeClueRef.current;
+    if (!active || active.id !== clueId || active.index !== clueIndex) return false;
+    activeClueRef.current = null;
+    clearTimers();
+    return true;
   }
 
   async function startSession() {
@@ -120,11 +130,12 @@ export function Buzzer() {
       api.post("/buzzer/start"),
       api.get(`/clues/random?${params.toString()}`),
     ]);
+    const roundClues = cluesRes.data.clues;
     sessionIdRef.current = start.data.sessionId;
-    setClues(cluesRes.data.clues);
+    setClues(roundClues);
     setIdx(0);
     setResults([]);
-    presentClue(cluesRes.data.clues[0]);
+    presentClue(roundClues[0], 0, roundClues);
   }
 
   function resumeSession() {
@@ -143,7 +154,7 @@ export function Buzzer() {
     }
     const resumeIdx = savedResults.length;
     setIdx(resumeIdx);
-    presentClue(savedClues[resumeIdx]);
+    presentClue(savedClues[resumeIdx], resumeIdx, savedClues);
   }
 
   function discardSavedRound() {
@@ -151,10 +162,11 @@ export function Buzzer() {
     setPendingResume(null);
   }
 
-  function presentClue(c: Clue) {
-    setLockoutsThisClue(0);
+  function presentClue(c: Clue, clueIndex: number, roundClues: Clue[]) {
+    lockoutsThisClueRef.current = 0;
     setAnswer("");
     setMarkingResponseId(null);
+    activeClueRef.current = { id: c.id, index: clueIndex };
     setPhase({ kind: "reading" });
     const wordCount = c.question.split(/\s+/).length;
     const readMs = Math.max(1500, wordCount * READING_RATE_MS_PER_WORD);
@@ -165,7 +177,7 @@ export function Buzzer() {
         // If they don't buzz within answer window after lights, mark wrong
         timers.current.push(
           setTimeout(() => {
-            recordTimeout();
+            recordTimeout(c, clueIndex, roundClues);
           }, ANSWER_WINDOW_MS),
         );
       }, readMs),
@@ -175,7 +187,7 @@ export function Buzzer() {
   function buzz() {
     if (phase.kind === "reading") {
       // Early buzz → lockout
-      setLockoutsThisClue((n) => n + 1);
+      lockoutsThisClueRef.current += 1;
       setPhase({ kind: "lockedOut" });
       timers.current.push(
         setTimeout(() => {
@@ -189,21 +201,24 @@ export function Buzzer() {
       return;
     }
     if (phase.kind === "ready") {
+      const clue = clues[idx];
+      if (!clue) return;
+      const active = activeClueRef.current;
+      if (!active || active.id !== clue.id || active.index !== idx) return;
       buzzedAt.current = Date.now();
       clearTimers();
       setPhase({ kind: "answering" });
       // Per-show 5s answering window
       timers.current.push(
         setTimeout(() => {
-          recordTimeout();
+          recordTimeout(clue, idx, clues);
         }, ANSWER_WINDOW_MS),
       );
     }
   }
 
-  async function recordTimeout() {
-    const clue = clues[idx];
-    if (!clue) return;
+  async function recordTimeout(clue: Clue, clueIndex: number, roundClues: Clue[]) {
+    if (!consumeActiveClue(clue.id, clueIndex)) return;
     // Submit an empty answer so the server has a ClueResponse row for this clue
     // — otherwise the server-side coryat recompute would ignore timeouts.
     const { data } = await api.post("/clues/submit", {
@@ -217,13 +232,13 @@ export function Buzzer() {
       correct: false,
       value: clue.value,
       ms: ANSWER_WINDOW_MS,
-      lockouts: lockoutsThisClue,
+      lockouts: lockoutsThisClueRef.current,
       responseId: data.responseId ?? null,
     };
     setResults((r) => {
       const next = [...r, entry];
       if (sessionIdRef.current) {
-        saveRound({ sessionId: sessionIdRef.current, clues, results: next });
+        saveRound({ sessionId: sessionIdRef.current, clues: roundClues, results: next });
       }
       return next;
     });
@@ -276,7 +291,7 @@ export function Buzzer() {
     if (submitting) return;
     const clue = clues[idx];
     if (!clue || phase.kind !== "answering") return;
-    clearTimers();
+    if (!consumeActiveClue(clue.id, idx)) return;
     setSubmitting(true);
     try {
       // Clamp to the answer window; backgrounded tabs throttle Date.now() updates.
@@ -292,7 +307,7 @@ export function Buzzer() {
         correct: data.correct,
         value: clue.value,
         ms: responseTimeMs,
-        lockouts: lockoutsThisClue,
+        lockouts: lockoutsThisClueRef.current,
         responseId: data.responseId ?? null,
       };
       setResults((r) => {
@@ -369,8 +384,9 @@ export function Buzzer() {
       finishSession();
       return;
     }
-    setIdx(idx + 1);
-    presentClue(clues[idx + 1]);
+    const nextIdx = idx + 1;
+    setIdx(nextIdx);
+    presentClue(clues[nextIdx], nextIdx, clues);
   }
 
   async function finishSession() {
@@ -382,6 +398,7 @@ export function Buzzer() {
       }
     }
     sessionIdRef.current = null;
+    activeClueRef.current = null;
     clearSavedRound();
     setMarkingResponseId(null);
     setPhase({ kind: "done" });
@@ -484,34 +501,52 @@ export function Buzzer() {
       </div>
 
       {(phase.kind === "reading" || phase.kind === "ready" || phase.kind === "lockedOut") && (
-        <button
-          onClick={buzz}
-          disabled={phase.kind === "lockedOut"}
-          className={`w-full py-6 font-bold text-2xl rounded transition ${buzzColor}`}
-        >
-          {buzzLabel}
-        </button>
+        <div className="space-y-3">
+          {phase.kind === "ready" && (
+            <TimerBar
+              totalMs={ANSWER_WINDOW_MS}
+              resetKey={`buzz-${clue.id}-${idx}`}
+              paused={false}
+              onExpire={() => {}}
+            />
+          )}
+          <button
+            onClick={buzz}
+            disabled={phase.kind === "lockedOut"}
+            className={`w-full py-6 font-bold text-2xl rounded transition ${buzzColor}`}
+          >
+            {buzzLabel}
+          </button>
+        </div>
       )}
 
       {phase.kind === "answering" && (
-        <form onSubmit={onSubmit} className="flex gap-2">
-          <input
-            autoFocus
-            aria-label="Your answer"
-            autoComplete="off"
-            className="flex-1 px-3 py-3 rounded bg-white/10"
-            placeholder="What is..."
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
+        <div className="space-y-3">
+          <TimerBar
+            totalMs={ANSWER_WINDOW_MS}
+            resetKey={`answer-${clue.id}-${idx}`}
+            paused={false}
+            onExpire={() => {}}
           />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-4 py-2 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60 disabled:cursor-wait"
-          >
-            {submitting ? "…" : "Submit"}
-          </button>
-        </form>
+          <form onSubmit={onSubmit} className="flex gap-2">
+            <input
+              autoFocus
+              aria-label="Your answer"
+              autoComplete="off"
+              className="flex-1 px-3 py-3 rounded bg-white/10"
+              placeholder="What is..."
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60 disabled:cursor-wait"
+            >
+              {submitting ? "…" : "Submit"}
+            </button>
+          </form>
+        </div>
       )}
 
       {phase.kind === "result" && (
