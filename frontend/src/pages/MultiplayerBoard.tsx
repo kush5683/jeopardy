@@ -1345,7 +1345,7 @@ function ResultAdvanceButton({
         locked ? "cursor-not-allowed" : "hover:brightness-110"
       }`}
       style={{
-        background: `linear-gradient(to right, #facc15 ${fillPercent}%, #fef3c7 ${fillPercent}%)`,
+        background: `linear-gradient(to right, #D69F4C ${fillPercent}%, #d4b484 ${fillPercent}%)`,
       }}
     >
       Advance
