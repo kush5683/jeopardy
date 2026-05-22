@@ -171,7 +171,7 @@ type SocketMessage =
   | { type: "room-state"; room: Room }
   | { type: "error"; message: string };
 
-const RESULT_ADVANCE_DELAY_MS = 3000;
+const RESULT_ADVANCE_DELAY_MS = 1500;
 const RESULT_ADVANCE_TICK_MS = 50;
 const BUZZ_WINDOW_MS = 5000;
 const ANSWER_WINDOW_MS = 5000;
