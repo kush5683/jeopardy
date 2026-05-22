@@ -104,6 +104,46 @@ async function forceBuzzOpen(room: any, clue: any) {
   });
 }
 
+async function forceFinalWager(room: any, userIds: string[], scores: Record<string, number>) {
+  const state = {
+    ...room.state,
+    scores,
+    phase: {
+      kind: "FINAL_WAGER",
+      clue: room.board.finalJeopardy,
+      eligibleUserIds: userIds,
+      wagers: {},
+      startedAt: new Date().toISOString(),
+      deadlineAt: new Date(Date.now() + 30000).toISOString(),
+    },
+  };
+  await prisma.multiplayerRoom.update({
+    where: { code: room.code },
+    data: {
+      status: "FINAL",
+      state: state as Prisma.InputJsonValue,
+    },
+  });
+}
+
+async function forceDailyDoubleWager(room: any, clue: any, playerUserId: string) {
+  const state = {
+    ...room.state,
+    phase: {
+      kind: "DD_WAGER",
+      round: "JEOPARDY",
+      clue,
+      playerUserId,
+      maxWager: 1000,
+      wagerDeadlineAt: new Date(Date.now() + 15000).toISOString(),
+    },
+  };
+  await prisma.multiplayerRoom.update({
+    where: { code: room.code },
+    data: { state: state as Prisma.InputJsonValue },
+  });
+}
+
 describe("multiplayer rooms", () => {
   it("creates a lobby and joins by code", async () => {
     await seedEpisodeBoard();
@@ -139,7 +179,7 @@ describe("multiplayer rooms", () => {
     ).toBe(true);
   });
 
-  it("enforces the 3-player cap", async () => {
+  it("puts joins after the first 3 seats in the audience", async () => {
     await seedEpisodeBoard();
     const agents = [newAgent(), newAgent(), newAgent(), newAgent()];
     const users = await Promise.all(agents.map((agent, idx) => registerUser(agent, {
@@ -163,14 +203,20 @@ describe("multiplayer rooms", () => {
       .send({ code: created.body.room.code })
       .expect(200);
 
-    await agents[3]
+    const audience = await agents[3]
       .post("/api/multiplayer/join")
       .set(authHeader(users[3].token))
       .send({ code: created.body.room.code })
-      .expect(409);
+      .expect(200);
+
+    const joinedAudience = audience.body.room.players.find(
+      (player: { userId: string }) => player.userId === users[3].userId,
+    );
+    expect(joinedAudience.role).toBe("AUDIENCE");
+    expect(joinedAudience.seat).toBeGreaterThan(3);
   });
 
-  it("only lets the host start, and rejects late joins after start", async () => {
+  it("only lets the host start, and puts late joins after start in the audience", async () => {
     await seedEpisodeBoard();
     const hostAgent = newAgent();
     const guestAgent = newAgent();
@@ -211,11 +257,16 @@ describe("multiplayer rooms", () => {
     expect(started.body.room.state.phase.kind).toBe("BOARD");
     expect(started.body.room.state.phase.round).toBe("JEOPARDY");
 
-    await lateAgent
+    const lateJoin = await lateAgent
       .post("/api/multiplayer/join")
       .set(authHeader(lateToken))
       .send({ code: created.body.room.code })
-      .expect(409);
+      .expect(200);
+
+    const lateMember = lateJoin.body.room.players.find(
+      (player: { displayName: string }) => player.displayName === "Late",
+    );
+    expect(lateMember.role).toBe("AUDIENCE");
   });
 
   it("reopens buzzing after wrong answers and reveals the answer only after everyone misses", async () => {
@@ -337,5 +388,253 @@ describe("multiplayer rooms", () => {
     expect(snapshot.state.phase.result.canonicalAnswer).toBe("Answer 1-200");
     expect(snapshot.state.phase.result.attempts).toHaveLength(1);
     expect(snapshot.state.playedClueIds).toContain(clue.id);
+  });
+
+  it("lets the buzzed player advance a revealed result after the read delay", async () => {
+    await seedEpisodeBoard();
+    const { users, room } = await createStartedRoom(2);
+    const clue = room.board.jeopardy.categories[0].cells[0];
+    await forceBuzzOpen(room, clue);
+
+    await multiplayerService.handleAction(room.code, users[1].userId, {
+      type: "buzz",
+    });
+    const result = await multiplayerService.handleAction(
+      room.code,
+      users[1].userId,
+      { type: "submit-answer", answer: "Answer 1-200" },
+    );
+
+    expect(result.state.phase.kind).toBe("RESULT");
+    if (result.state.phase.kind !== "RESULT") {
+      throw new Error("expected clue result");
+    }
+    expect(result.state.phase.result.correct).toBe(true);
+    expect(result.state.phase.result.answeredByUserId).toBe(users[1].userId);
+    expect(result.state.phase.resultBeganAt).toEqual(expect.any(String));
+    expect(result.state.phase.advanceUnlocksAt).toEqual(expect.any(String));
+
+    await expect(
+      multiplayerService.handleAction(room.code, users[1].userId, {
+        type: "advance",
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      multiplayerService.handleAction(room.code, users[0].userId, {
+        type: "advance",
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    const unlockedState = {
+      ...result.state,
+      phase: {
+        ...result.state.phase,
+        advanceUnlocksAt: new Date(Date.now() - 1).toISOString(),
+      },
+    };
+    await prisma.multiplayerRoom.update({
+      where: { code: room.code },
+      data: { state: unlockedState as Prisma.InputJsonValue },
+    });
+
+    const advanced = await multiplayerService.handleAction(
+      room.code,
+      users[1].userId,
+      { type: "advance" },
+    );
+    expect(advanced.state.phase.kind).toBe("BOARD");
+    if (advanced.state.phase.kind !== "BOARD") {
+      throw new Error("expected board after result advance");
+    }
+    expect(advanced.state.selectorUserId).toBe(users[1].userId);
+  });
+
+  it("shows regular answer drafts only to the audience", async () => {
+    await seedEpisodeBoard();
+    const { users, room } = await createStartedRoom(3);
+    const audienceAgent = newAgent();
+    const audience = await registerUser(audienceAgent, { displayName: "Audience" });
+    await audienceAgent
+      .post("/api/multiplayer/join")
+      .set(authHeader(audience.token))
+      .send({ code: room.code })
+      .expect(200);
+
+    const clue = room.board.jeopardy.categories[0].cells[0];
+    await forceBuzzOpen(room, clue);
+    await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "buzz",
+    });
+    await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "update-draft",
+      value: "typing live",
+    });
+
+    const playerView = await multiplayerService.getRoom(room.code, users[1].userId);
+    const audienceView = await multiplayerService.getRoom(room.code, audience.userId);
+    expect(playerView.state.phase.kind).toBe("ANSWERING");
+    expect(audienceView.state.phase.kind).toBe("ANSWERING");
+    if (
+      playerView.state.phase.kind !== "ANSWERING" ||
+      audienceView.state.phase.kind !== "ANSWERING"
+    ) {
+      throw new Error("expected answering phase");
+    }
+    expect(playerView.state.phase.answerDraft).toBe("");
+    expect(audienceView.state.phase.answerDraft).toBe("typing live");
+
+    await expect(
+      multiplayerService.handleAction(room.code, audience.userId, { type: "buzz" }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("shows Daily Double wager drafts to players and audience", async () => {
+    await seedEpisodeBoard();
+    const { users, room } = await createStartedRoom(3);
+    const audienceAgent = newAgent();
+    const audience = await registerUser(audienceAgent, { displayName: "Audience" });
+    await audienceAgent
+      .post("/api/multiplayer/join")
+      .set(authHeader(audience.token))
+      .send({ code: room.code })
+      .expect(200);
+
+    const dailyDouble = room.board.jeopardy.categories[1].cells[3];
+    await forceDailyDoubleWager(room, dailyDouble, users[0].userId);
+    await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "update-draft",
+      value: "1234",
+    });
+
+    const otherPlayerView = await multiplayerService.getRoom(room.code, users[1].userId);
+    const audienceView = await multiplayerService.getRoom(room.code, audience.userId);
+    expect(otherPlayerView.state.phase.kind).toBe("DD_WAGER");
+    expect(audienceView.state.phase.kind).toBe("DD_WAGER");
+    if (
+      otherPlayerView.state.phase.kind !== "DD_WAGER" ||
+      audienceView.state.phase.kind !== "DD_WAGER"
+    ) {
+      throw new Error("expected Daily Double wager phase");
+    }
+    expect(otherPlayerView.state.phase.wagerDraft).toBe("1234");
+    expect(audienceView.state.phase.wagerDraft).toBe("1234");
+  });
+
+  it("keeps Final wagers and answers private until the reveal", async () => {
+    await seedEpisodeBoard();
+    const { users, room } = await createStartedRoom(3);
+    const audienceAgent = newAgent();
+    const audience = await registerUser(audienceAgent, { displayName: "Audience" });
+    await audienceAgent
+      .post("/api/multiplayer/join")
+      .set(authHeader(audience.token))
+      .send({ code: room.code })
+      .expect(200);
+
+    const scores = {
+      [users[0].userId]: 1000,
+      [users[1].userId]: 2000,
+      [users[2].userId]: 3000,
+    };
+    await forceFinalWager(
+      room,
+      users.map((user) => user.userId),
+      scores,
+    );
+
+    await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "submit-wager",
+      wager: 100,
+    });
+    const firstPlayerWagerView = await multiplayerService.getRoom(
+      room.code,
+      users[0].userId,
+    );
+    const secondPlayerWagerView = await multiplayerService.getRoom(
+      room.code,
+      users[1].userId,
+    );
+    const audienceWagerView = await multiplayerService.getRoom(room.code, audience.userId);
+    if (
+      firstPlayerWagerView.state.phase.kind !== "FINAL_WAGER" ||
+      secondPlayerWagerView.state.phase.kind !== "FINAL_WAGER" ||
+      audienceWagerView.state.phase.kind !== "FINAL_WAGER"
+    ) {
+      throw new Error("expected final wager phase");
+    }
+    expect(firstPlayerWagerView.state.phase.wagers).toEqual({
+      [users[0].userId]: 100,
+    });
+    expect(secondPlayerWagerView.state.phase.wagers).toEqual({});
+    expect(audienceWagerView.state.phase.wagers).toEqual({});
+    expect(audienceWagerView.state.phase.submittedCount).toBe(1);
+
+    await multiplayerService.handleAction(room.code, users[1].userId, {
+      type: "submit-wager",
+      wager: 200,
+    });
+    await multiplayerService.handleAction(room.code, users[2].userId, {
+      type: "submit-wager",
+      wager: 300,
+    });
+    await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "submit-answer",
+      answer: "Final answer",
+    });
+
+    const firstPlayerAnswerView = await multiplayerService.getRoom(
+      room.code,
+      users[0].userId,
+    );
+    const secondPlayerAnswerView = await multiplayerService.getRoom(
+      room.code,
+      users[1].userId,
+    );
+    const audienceAnswerView = await multiplayerService.getRoom(room.code, audience.userId);
+    if (
+      firstPlayerAnswerView.state.phase.kind !== "FINAL_ANSWER" ||
+      secondPlayerAnswerView.state.phase.kind !== "FINAL_ANSWER" ||
+      audienceAnswerView.state.phase.kind !== "FINAL_ANSWER"
+    ) {
+      throw new Error("expected final answer phase");
+    }
+    expect(firstPlayerAnswerView.state.phase.answers).toEqual({
+      [users[0].userId]: "Final answer",
+    });
+    expect(secondPlayerAnswerView.state.phase.answers).toEqual({});
+    expect(audienceAnswerView.state.phase.answers).toEqual({});
+    expect(secondPlayerAnswerView.state.phase.wagers).toEqual({
+      [users[1].userId]: 200,
+    });
+
+    await multiplayerService.handleAction(room.code, users[1].userId, {
+      type: "submit-answer",
+      answer: "wrong",
+    });
+    const revealStart = await multiplayerService.handleAction(room.code, users[2].userId, {
+      type: "submit-answer",
+      answer: "wrong",
+    });
+    expect(revealStart.state.phase.kind).toBe("FINAL_REVEAL");
+    if (revealStart.state.phase.kind !== "FINAL_REVEAL") {
+      throw new Error("expected final reveal phase");
+    }
+    expect(revealStart.state.scores[users[0].userId]).toBe(1000);
+    expect(revealStart.state.phase.results).toHaveLength(1);
+    expect(revealStart.state.phase.results[0].userId).toBe(users[0].userId);
+    expect(revealStart.state.phase.results[0].submittedAnswer).toBe("Final answer");
+    expect(revealStart.state.phase.results[0].wager).toBe(0);
+    expect(revealStart.state.phase.results[0].wagerRevealed).toBe(false);
+
+    const wagerReveal = await multiplayerService.handleAction(room.code, users[0].userId, {
+      type: "advance",
+    });
+    expect(wagerReveal.state.phase.kind).toBe("FINAL_REVEAL");
+    if (wagerReveal.state.phase.kind !== "FINAL_REVEAL") {
+      throw new Error("expected final reveal wager step");
+    }
+    expect(wagerReveal.state.scores[users[0].userId]).toBe(1100);
+    expect(wagerReveal.state.phase.results[0].wager).toBe(100);
+    expect(wagerReveal.state.phase.results[0].wagerRevealed).toBe(true);
   });
 });

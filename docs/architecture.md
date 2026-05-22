@@ -145,6 +145,9 @@ mutating browser requests.
 `backend/src/multiplayer/service.ts` owns multiplayer room transitions. The
 database stores the current room state in `MultiplayerRoom.state`, while an
 in-memory runtime map tracks live websocket clients and scheduled timers.
+Serialized room snapshots include `serverNow`; clients use it with server
+deadlines to render countdown bars without relying on browser/server clock
+alignment.
 
 Regular clues move through:
 
@@ -162,7 +165,8 @@ it is only sent in `RESULT`.
 
 Daily Doubles skip the shared buzz loop and go from wager collection directly to
 `ANSWERING`. Final Jeopardy uses `FINAL_WAGER` and `FINAL_ANSWER` phases, then
-resolves all eligible answers together.
+enters a host-driven `FINAL_REVEAL` phase so each response and wager can be
+shown in order.
 
 ## Data Model
 

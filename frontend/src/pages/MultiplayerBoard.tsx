@@ -8,6 +8,7 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 type RoundKind = "JEOPARDY" | "DOUBLE_JEOPARDY";
 type RoomStatus = "LOBBY" | "LIVE" | "FINAL" | "COMPLETE" | "ABANDONED";
+type PlayerRole = "PLAYER" | "AUDIENCE";
 
 type Cell = {
   id: number;
@@ -39,6 +40,17 @@ type BuzzAttempt = {
   timedOut: boolean;
 };
 
+type FinalResult = {
+  userId: string;
+  submittedAnswer: string;
+  correct: boolean;
+  canonicalAnswer: string;
+  valueDelta: number;
+  wager: number;
+  llmVerdict: boolean | null;
+  wagerRevealed?: boolean;
+};
+
 type RoomPhase =
   | { kind: "LOBBY" }
   | { kind: "BOARD"; round: RoundKind }
@@ -58,6 +70,7 @@ type RoomPhase =
       playerUserId: string;
       maxWager: number;
       wagerDeadlineAt: string;
+      wagerDraft?: string;
     }
   | {
       kind: "ANSWERING";
@@ -70,11 +83,14 @@ type RoomPhase =
       dailyDouble: boolean;
       buzzedUserIds: string[];
       attempts: BuzzAttempt[];
+      answerDraft?: string;
     }
   | {
       kind: "RESULT";
       round: RoundKind;
       clue: Cell;
+      resultBeganAt?: string;
+      advanceUnlocksAt?: string;
       result: {
         answeredByUserId: string | null;
         submittedAnswer: string;
@@ -94,6 +110,7 @@ type RoomPhase =
       wagers: Record<string, number>;
       startedAt: string;
       deadlineAt: string;
+      submittedCount?: number;
     }
   | {
       kind: "FINAL_ANSWER";
@@ -103,18 +120,19 @@ type RoomPhase =
       answers: Record<string, string>;
       startedAt: string;
       deadlineAt: string;
+      submittedCount?: number;
+    }
+  | {
+      kind: "FINAL_REVEAL";
+      clue: Cell;
+      eligibleUserIds: string[];
+      results: FinalResult[];
+      revealIndex: number;
+      revealStep: "ANSWER" | "WAGER";
     }
   | {
       kind: "COMPLETE";
-      finalResults: Array<{
-        userId: string;
-        submittedAnswer: string;
-        correct: boolean;
-        canonicalAnswer: string;
-        valueDelta: number;
-        wager: number;
-        llmVerdict: boolean | null;
-      }> | null;
+      finalResults: FinalResult[] | null;
       reason: string | null;
     }
   | { kind: "ABANDONED"; reason: string };
@@ -123,6 +141,7 @@ type Room = {
   code: string;
   status: RoomStatus;
   hostUserId: string;
+  serverNow: string;
   board: Episode;
   state: {
     version: 1;
@@ -138,6 +157,7 @@ type Room = {
     displayName: string;
     seat: number;
     isHost: boolean;
+    role: PlayerRole;
     connected: boolean;
     left: boolean;
     score: number;
@@ -151,6 +171,14 @@ type SocketMessage =
   | { type: "room-state"; room: Room }
   | { type: "error"; message: string };
 
+const RESULT_ADVANCE_DELAY_MS = 3000;
+const RESULT_ADVANCE_TICK_MS = 50;
+const BUZZ_WINDOW_MS = 5000;
+const ANSWER_WINDOW_MS = 5000;
+const DD_WAGER_WINDOW_MS = 15000;
+const DD_ANSWER_WINDOW_MS = 15000;
+const FINAL_WAGER_WINDOW_MS = 30000;
+const FINAL_ANSWER_WINDOW_MS = 30000;
 const MIN_DD_WAGER = 5;
 
 function normalizeRoomCode(raw: string): string {
@@ -166,8 +194,19 @@ function wsUrl(code: string): string {
   return `${protocol}//${window.location.host}/api/multiplayer/ws?code=${encodeURIComponent(code)}`;
 }
 
-function remainingMs(deadlineAt: string): number {
-  return Math.max(0, new Date(deadlineAt).getTime() - Date.now());
+function remainingMs(deadlineAt: string, serverClockOffsetMs = 0): number {
+  const deadlineMs = parseTimeMs(deadlineAt);
+  if (deadlineMs == null) return 0;
+  return Math.max(0, deadlineMs - (Date.now() + serverClockOffsetMs));
+}
+
+function timerTimeLeftMs(
+  deadlineAt: string,
+  serverClockOffsetMs: number,
+  maxMs?: number,
+): number {
+  const timeLeftMs = remainingMs(deadlineAt, serverClockOffsetMs);
+  return maxMs == null ? timeLeftMs : Math.min(maxMs, timeLeftMs);
 }
 
 function playerName(room: Room, userId: string | null): string {
@@ -196,7 +235,45 @@ function currentBoard(room: Room): RoundBoard | null {
 }
 
 function standings(room: Room) {
-  return [...room.players].sort((a, b) => b.score - a.score || a.seat - b.seat);
+  return contestants(room).sort((a, b) => b.score - a.score || a.seat - b.seat);
+}
+
+function contestants(room: Room) {
+  return room.players.filter((player) => player.role === "PLAYER");
+}
+
+function audienceMembers(room: Room) {
+  return room.players.filter((player) => player.role === "AUDIENCE");
+}
+
+function hasOwn<T extends object>(record: T, key: string): key is keyof T & string {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function displayDraftWager(raw: string): string {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) return "$";
+  return `$${Number(digits).toLocaleString()}`;
+}
+
+function parseTimeMs(raw?: string): number | null {
+  if (!raw) return null;
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resultAdvanceActorUserId(
+  room: Room,
+  phase: Extract<RoomPhase, { kind: "RESULT" }>,
+): string {
+  const answeredByUserId = phase.result.answeredByUserId;
+  const answeredByActive = Boolean(
+    answeredByUserId &&
+      contestants(room).some(
+        (player) => player.userId === answeredByUserId && !player.left,
+      ),
+  );
+  return answeredByActive && answeredByUserId ? answeredByUserId : room.hostUserId;
 }
 
 export function MultiplayerBoard() {
@@ -225,7 +302,13 @@ export function MultiplayerBoard() {
     [room, user?.id],
   );
   const iAmHost = room?.hostUserId === user?.id;
-  const hasBoardControl = room?.state.selectorUserId === user?.id;
+  const iAmContestant = myPlayer?.role === "PLAYER" && !myPlayer.left;
+  const iAmAudience = myPlayer?.role === "AUDIENCE" && !myPlayer.left;
+  const hasBoardControl = iAmContestant && room?.state.selectorUserId === user?.id;
+  const serverClockOffsetMs = useMemo(() => {
+    const serverNowMs = parseTimeMs(room?.serverNow);
+    return serverNowMs == null ? 0 : serverNowMs - Date.now();
+  }, [room?.serverNow]);
 
   useEffect(() => {
     setActionError(null);
@@ -329,7 +412,7 @@ export function MultiplayerBoard() {
     user?.id && buzzOpenPhase?.buzzedUserIds?.includes(user.id),
   );
   const canBuzz = Boolean(
-    buzzOpenPhase && !room?.state.paused && !myPlayer?.left && !iBuzzedThisClue,
+    buzzOpenPhase && !room?.state.paused && iAmContestant && !iBuzzedThisClue,
   );
 
   const sendAction = useCallback((payload: object) => {
@@ -446,6 +529,28 @@ export function MultiplayerBoard() {
     setWagerInput("");
   }
 
+  function updateWagerInput(value: string) {
+    setWagerInput(value);
+    if (!user) return;
+    const currentPhase = room?.state.phase;
+    if (currentPhase?.kind === "DD_WAGER" && currentPhase.playerUserId === user.id) {
+      sendAction({ type: "update-draft", value });
+    }
+  }
+
+  function updateAnswerInput(value: string) {
+    setAnswerInput(value);
+    if (!user) return;
+    const currentPhase = room?.state.phase;
+    if (
+      currentPhase?.kind === "ANSWERING" &&
+      currentPhase.answeringUserId === user.id &&
+      !currentPhase.dailyDouble
+    ) {
+      sendAction({ type: "update-draft", value });
+    }
+  }
+
   if (!user) {
     return null;
   }
@@ -456,8 +561,8 @@ export function MultiplayerBoard() {
         <div className="text-center space-y-3">
           <h1 className="font-category text-5xl text-jeopardy-gold">Online Multiplayer</h1>
           <p className="text-white/75 max-w-2xl mx-auto">
-            Private live rooms for up to 3 total players. Create a room, share
-            the code, and play the same full board in real time.
+            Private live rooms for 3 players plus audience. Create a room,
+            share the code, and play the same full board in real time.
           </p>
         </div>
 
@@ -550,6 +655,11 @@ export function MultiplayerBoard() {
   const selector = playerName(room, room.state.selectorUserId);
   const sortedStandings = standings(room);
   const paused = room.state.paused;
+  const resultPhase = phase.kind === "RESULT" ? phase : null;
+  const advanceResultUserId = resultPhase
+    ? resultAdvanceActorUserId(room, resultPhase)
+    : null;
+  const iCanAdvanceResult = advanceResultUserId === user.id;
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
@@ -562,6 +672,9 @@ export function MultiplayerBoard() {
           <p className="text-xs text-white/45">
             {room.board.date ? `Episode aired ${room.board.date}` : "Mixed board"}
           </p>
+          {iAmAudience && (
+            <p className="text-xs text-jeopardy-gold/80">Audience view</p>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span
@@ -616,11 +729,11 @@ export function MultiplayerBoard() {
             <h2 className="font-category text-3xl text-jeopardy-gold">Lobby</h2>
             <p className="text-white/75">
               Share <span className="font-mono tracking-[0.2em]">{roomCode}</span> with up to{" "}
-              {Math.max(0, 3 - room.players.filter((player) => !player.left).length)} more player
-              {room.players.filter((player) => !player.left).length === 2 ? "" : "s"}.
+              {Math.max(0, 3 - contestants(room).filter((player) => !player.left).length)} more player
+              {contestants(room).filter((player) => !player.left).length === 2 ? "" : "s"}.
             </p>
             <p className="text-sm text-white/60">
-              The host starts the room. After that, the roster locks and only current players can reconnect.
+              Extra joins enter the audience and follow the same room view without playing clues.
             </p>
             {iAmHost ? (
               <button
@@ -671,6 +784,7 @@ export function MultiplayerBoard() {
         phase.kind === "RESULT" ||
         phase.kind === "FINAL_WAGER" ||
         phase.kind === "FINAL_ANSWER" ||
+        phase.kind === "FINAL_REVEAL" ||
         phase.kind === "COMPLETE" ||
         phase.kind === "ABANDONED") && (
         <div className="grid lg:grid-cols-[1.25fr_0.75fr] gap-4">
@@ -682,7 +796,10 @@ export function MultiplayerBoard() {
                 subtext={`Board control: ${selector}`}
               >
                 <TimerBar
-                  totalMs={Math.max(1, remainingMs(phase.readEndsAt))}
+                  totalMs={Math.max(
+                    1,
+                    remainingMs(phase.readEndsAt, serverClockOffsetMs),
+                  )}
                   resetKey={phase.readEndsAt}
                   paused={Boolean(paused)}
                   onExpire={() => {}}
@@ -700,7 +817,12 @@ export function MultiplayerBoard() {
                 subtext={`Board control: ${selector}`}
               >
                 <TimerBar
-                  totalMs={Math.max(1, remainingMs(phase.buzzClosesAt))}
+                  totalMs={BUZZ_WINDOW_MS}
+                  initialTimeLeftMs={timerTimeLeftMs(
+                    phase.buzzClosesAt,
+                    serverClockOffsetMs,
+                    BUZZ_WINDOW_MS,
+                  )}
                   resetKey={phase.buzzClosesAt}
                   paused={Boolean(paused)}
                   onExpire={() => {}}
@@ -731,11 +853,27 @@ export function MultiplayerBoard() {
                 subtext={`${playerName(room, phase.playerUserId)} controls this clue.`}
               >
                 <TimerBar
-                  totalMs={Math.max(1, remainingMs(phase.wagerDeadlineAt))}
+                  totalMs={DD_WAGER_WINDOW_MS}
+                  initialTimeLeftMs={timerTimeLeftMs(
+                    phase.wagerDeadlineAt,
+                    serverClockOffsetMs,
+                    DD_WAGER_WINDOW_MS,
+                  )}
                   resetKey={phase.wagerDeadlineAt}
                   paused={Boolean(paused)}
                   onExpire={() => {}}
                 />
+                <div className="max-w-md mx-auto rounded bg-black/30 border border-jeopardy-gold/30 px-4 py-5 text-center">
+                  <div className="text-xs uppercase text-white/45">Live wager</div>
+                  <div className="dollar text-4xl text-jeopardy-gold mt-1">
+                    {displayDraftWager(
+                      phase.playerUserId === user.id ? wagerInput : phase.wagerDraft ?? "",
+                    )}
+                  </div>
+                  <div className="text-xs text-white/45 mt-2">
+                    Maximum <span className="dollar">${phase.maxWager.toLocaleString()}</span>
+                  </div>
+                </div>
                 {phase.playerUserId === user.id ? (
                   <form onSubmit={submitWager} className="flex gap-2 max-w-md mx-auto">
                     <input
@@ -745,7 +883,7 @@ export function MultiplayerBoard() {
                       min={MIN_DD_WAGER}
                       max={phase.maxWager}
                       value={wagerInput}
-                      onChange={(e) => setWagerInput(e.target.value)}
+                      onChange={(e) => updateWagerInput(e.target.value)}
                       placeholder={`$${MIN_DD_WAGER} to $${phase.maxWager}`}
                       className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
                     />
@@ -768,7 +906,12 @@ export function MultiplayerBoard() {
                 subtext={`Answering: ${playerName(room, phase.answeringUserId)}`}
               >
                 <TimerBar
-                  totalMs={Math.max(1, remainingMs(phase.answerDeadlineAt))}
+                  totalMs={phase.dailyDouble ? DD_ANSWER_WINDOW_MS : ANSWER_WINDOW_MS}
+                  initialTimeLeftMs={timerTimeLeftMs(
+                    phase.answerDeadlineAt,
+                    serverClockOffsetMs,
+                    phase.dailyDouble ? DD_ANSWER_WINDOW_MS : ANSWER_WINDOW_MS,
+                  )}
                   resetKey={phase.answerDeadlineAt}
                   paused={Boolean(paused)}
                   onExpire={() => {}}
@@ -780,7 +923,7 @@ export function MultiplayerBoard() {
                       aria-label="Your answer"
                       autoComplete="off"
                       value={answerInput}
-                      onChange={(e) => setAnswerInput(e.target.value)}
+                      onChange={(e) => updateAnswerInput(e.target.value)}
                       placeholder="What is..."
                       className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
                     />
@@ -788,6 +931,15 @@ export function MultiplayerBoard() {
                       Submit
                     </button>
                   </form>
+                ) : iAmAudience && !phase.dailyDouble ? (
+                  <div className="rounded bg-black/30 border border-white/10 px-4 py-4">
+                    <div className="text-xs uppercase text-white/45">
+                      {playerName(room, phase.answeringUserId)} is typing
+                    </div>
+                    <div className="mt-2 min-h-[2.5rem] text-2xl text-white break-words">
+                      {phase.answerDraft || ""}
+                    </div>
+                  </div>
                 ) : (
                   <p className="text-center text-sm text-white/70">
                     Waiting for {playerName(room, phase.answeringUserId)} to answer.
@@ -856,16 +1008,17 @@ export function MultiplayerBoard() {
                     LLM invoked: {phase.result.llmVerdict ? "YES" : "NO"}
                   </p>
                 )}
-                {iAmHost ? (
-                  <button
-                    onClick={() => sendAction({ type: "advance" })}
-                    disabled={Boolean(paused)}
-                    className="mt-5 px-6 py-2 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60"
-                  >
-                    Advance
-                  </button>
+                {iCanAdvanceResult ? (
+                  <ResultAdvanceButton
+                    phase={phase}
+                    paused={Boolean(paused)}
+                    serverClockOffsetMs={serverClockOffsetMs}
+                    onAdvance={() => sendAction({ type: "advance" })}
+                  />
                 ) : (
-                  <p className="mt-4 text-sm text-white/60">Waiting for the host to advance.</p>
+                  <p className="mt-4 text-sm text-white/60">
+                    Waiting for {playerName(room, advanceResultUserId)} to advance.
+                  </p>
                 )}
               </div>
             )}
@@ -876,12 +1029,26 @@ export function MultiplayerBoard() {
                   {phase.clue.category}
                 </div>
                 <TimerBar
-                  totalMs={Math.max(1, remainingMs(phase.deadlineAt))}
+                  totalMs={FINAL_WAGER_WINDOW_MS}
+                  initialTimeLeftMs={timerTimeLeftMs(
+                    phase.deadlineAt,
+                    serverClockOffsetMs,
+                    FINAL_WAGER_WINDOW_MS,
+                  )}
                   resetKey={phase.deadlineAt}
                   paused={Boolean(paused)}
                   onExpire={() => {}}
                 />
-                {phase.eligibleUserIds.includes(user.id) ? (
+                {iAmContestant &&
+                phase.eligibleUserIds.includes(user.id) &&
+                hasOwn(phase.wagers, user.id) ? (
+                  <div className="max-w-md mx-auto rounded bg-white/5 px-4 py-3 text-center">
+                    <div className="text-sm text-white/60">Your wager is locked.</div>
+                    <div className="dollar text-3xl text-jeopardy-gold">
+                      ${phase.wagers[user.id].toLocaleString()}
+                    </div>
+                  </div>
+                ) : iAmContestant && phase.eligibleUserIds.includes(user.id) ? (
                   <form onSubmit={submitWager} className="flex gap-2 max-w-md mx-auto">
                     <input
                       autoFocus
@@ -890,7 +1057,7 @@ export function MultiplayerBoard() {
                       min={0}
                       max={Math.max(0, myPlayer?.score ?? 0)}
                       value={wagerInput}
-                      onChange={(e) => setWagerInput(e.target.value)}
+                      onChange={(e) => updateWagerInput(e.target.value)}
                       placeholder={`0 to ${Math.max(0, myPlayer?.score ?? 0)}`}
                       className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
                     />
@@ -898,13 +1065,17 @@ export function MultiplayerBoard() {
                       Wager
                     </button>
                   </form>
+                ) : iAmAudience ? (
+                  <p className="text-center text-sm text-white/65">
+                    Final wagers are hidden until the reveal.
+                  </p>
                 ) : (
                   <p className="text-center text-sm text-white/65">
                     You did not qualify for Final Jeopardy.
                   </p>
                 )}
                 <p className="text-center text-sm text-white/60">
-                  {phase.eligibleUserIds.filter((id) => id in phase.wagers).length} of{" "}
+                  {phase.submittedCount ?? Object.keys(phase.wagers).length} of{" "}
                   {phase.eligibleUserIds.length} eligible players locked in.
                 </p>
               </div>
@@ -921,19 +1092,41 @@ export function MultiplayerBoard() {
                   </p>
                 </div>
                 <TimerBar
-                  totalMs={Math.max(1, remainingMs(phase.deadlineAt))}
+                  totalMs={FINAL_ANSWER_WINDOW_MS}
+                  initialTimeLeftMs={timerTimeLeftMs(
+                    phase.deadlineAt,
+                    serverClockOffsetMs,
+                    FINAL_ANSWER_WINDOW_MS,
+                  )}
                   resetKey={phase.deadlineAt}
                   paused={Boolean(paused)}
                   onExpire={() => {}}
                 />
-                {phase.eligibleUserIds.includes(user.id) ? (
+                {iAmContestant &&
+                phase.eligibleUserIds.includes(user.id) &&
+                hasOwn(phase.answers, user.id) ? (
+                  <div className="max-w-2xl mx-auto rounded bg-white/5 px-4 py-3 text-center">
+                    {hasOwn(phase.wagers, user.id) && (
+                      <div className="text-sm text-white/60">
+                        Your wager:{" "}
+                        <span className="dollar">
+                          ${phase.wagers[user.id].toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="mt-2 text-sm text-white/60">Your answer is locked.</div>
+                    <div className="text-xl text-white break-words">
+                      {phase.answers[user.id] || "(blank)"}
+                    </div>
+                  </div>
+                ) : iAmContestant && phase.eligibleUserIds.includes(user.id) ? (
                   <form onSubmit={submitAnswer} className="flex gap-2">
                     <input
                       autoFocus
                       aria-label="Final answer"
                       autoComplete="off"
                       value={answerInput}
-                      onChange={(e) => setAnswerInput(e.target.value)}
+                      onChange={(e) => updateAnswerInput(e.target.value)}
                       placeholder="What is..."
                       className="flex-1 px-3 py-3 rounded bg-white/10 text-xl"
                     />
@@ -941,11 +1134,76 @@ export function MultiplayerBoard() {
                       Submit
                     </button>
                   </form>
+                ) : iAmAudience ? (
+                  <p className="text-center text-sm text-white/60">
+                    Final answers are hidden until the reveal.
+                  </p>
                 ) : (
                   <p className="text-center text-sm text-white/60">
                     Waiting for the finalists to answer.
                   </p>
                 )}
+                <p className="text-center text-sm text-white/60">
+                  {phase.submittedCount ?? Object.keys(phase.answers).length} of{" "}
+                  {phase.eligibleUserIds.length} eligible players locked in.
+                </p>
+              </div>
+            )}
+
+            {phase.kind === "FINAL_REVEAL" && (
+              <div className="space-y-4">
+                <div className="category-banner text-center py-3 text-2xl">
+                  {phase.clue.category}
+                </div>
+                <div className="clue-tile p-5 sm:p-10 text-center min-h-[30vh] flex items-center justify-center rounded">
+                  <p className="text-3xl sm:text-4xl md:text-5xl leading-tight font-category break-words">
+                    {phase.clue.question}
+                  </p>
+                </div>
+                <div className="rounded bg-white/5 p-5 space-y-4">
+                  <div className="text-sm text-white/60 text-center">
+                    Final response{" "}
+                    {Math.min(phase.revealIndex + 1, phase.eligibleUserIds.length)} of{" "}
+                    {phase.eligibleUserIds.length}
+                  </div>
+                  {phase.results.length > 0 && (
+                    <FinalRevealCard
+                      room={room}
+                      result={phase.results[phase.results.length - 1]}
+                    />
+                  )}
+                  {phase.results.length > 1 && (
+                    <div className="space-y-2">
+                      <h3 className="font-category text-2xl text-jeopardy-gold">
+                        Revealed
+                      </h3>
+                      {phase.results.slice(0, -1).map((result) => (
+                        <FinalRevealSummary
+                          key={result.userId}
+                          room={room}
+                          result={result}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {iAmHost ? (
+                    <button
+                      onClick={() => sendAction({ type: "advance" })}
+                      disabled={Boolean(paused)}
+                      className="w-full px-6 py-3 bg-jeopardy-gold text-black font-semibold rounded disabled:opacity-60"
+                    >
+                      {phase.revealStep === "ANSWER"
+                        ? "Reveal wager"
+                        : phase.revealIndex + 1 >= phase.eligibleUserIds.length
+                          ? "Finish game"
+                          : "Next response"}
+                    </button>
+                  ) : (
+                    <p className="text-center text-sm text-white/60">
+                      Waiting for the host to reveal the next step.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1038,10 +1296,121 @@ export function MultiplayerBoard() {
   );
 }
 
+function ResultAdvanceButton({
+  phase,
+  paused,
+  serverClockOffsetMs,
+  onAdvance,
+}: {
+  phase: Extract<RoomPhase, { kind: "RESULT" }>;
+  paused: boolean;
+  serverClockOffsetMs: number;
+  onAdvance: () => void;
+}) {
+  const nowMs = useCallback(() => Date.now() + serverClockOffsetMs, [
+    serverClockOffsetMs,
+  ]);
+  const fallbackStartedAt = useRef(nowMs());
+  const startedAt =
+    parseTimeMs(phase.resultBeganAt) ?? fallbackStartedAt.current;
+  const unlocksAt =
+    parseTimeMs(phase.advanceUnlocksAt) ?? startedAt + RESULT_ADVANCE_DELAY_MS;
+  const totalMs = Math.max(1, unlocksAt - startedAt);
+  const [now, setNow] = useState(nowMs());
+
+  useEffect(() => {
+    setNow(nowMs());
+    const id = window.setInterval(() => {
+      const current = nowMs();
+      setNow(current);
+      if (current >= unlocksAt) {
+        window.clearInterval(id);
+      }
+    }, RESULT_ADVANCE_TICK_MS);
+    return () => window.clearInterval(id);
+  }, [nowMs, startedAt, unlocksAt]);
+
+  const progress = Math.min(1, Math.max(0, (now - startedAt) / totalMs));
+  const locked = paused || progress < 1;
+  const fillPercent = Math.round(progress * 1000) / 10;
+
+  return (
+    <button
+      onClick={onAdvance}
+      disabled={locked}
+      aria-label={
+        locked ? "Advance available after answer read timer" : "Advance to board"
+      }
+      className={`mt-5 overflow-hidden rounded border border-yellow-300/70 px-6 py-2 font-semibold text-black shadow-sm transition ${
+        locked ? "cursor-not-allowed" : "hover:brightness-110"
+      }`}
+      style={{
+        background: `linear-gradient(to right, #facc15 ${fillPercent}%, #fef3c7 ${fillPercent}%)`,
+      }}
+    >
+      Advance
+    </button>
+  );
+}
+
+function FinalRevealCard({ room, result }: { room: Room; result: FinalResult }) {
+  return (
+    <div
+      className={`rounded p-5 text-center ${
+        result.correct ? "bg-green-700/35" : "bg-red-700/35"
+      }`}
+    >
+      <div className="text-sm text-white/60">{playerName(room, result.userId)}</div>
+      <div className="mt-2 text-2xl text-white break-words">
+        {result.submittedAnswer || "(blank)"}
+      </div>
+      <div className={result.correct ? "mt-3 text-green-100" : "mt-3 text-red-100"}>
+        {result.correct ? "Correct" : "Incorrect"}
+      </div>
+      <div className="mt-2 text-sm text-white/70">
+        Correct response: <span className="font-semibold">{result.canonicalAnswer}</span>
+      </div>
+      {result.wagerRevealed ? (
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <div className="text-sm text-white/60">Wager</div>
+          <div className="dollar text-3xl text-jeopardy-gold">
+            ${result.wager.toLocaleString()}
+          </div>
+          <div className={result.valueDelta >= 0 ? "text-green-100" : "text-red-100"}>
+            {result.valueDelta >= 0 ? "+" : "-"}
+            <span className="dollar">
+              ${Math.abs(result.valueDelta).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 text-sm text-white/55">Wager hidden</div>
+      )}
+    </div>
+  );
+}
+
+function FinalRevealSummary({ room, result }: { room: Room; result: FinalResult }) {
+  return (
+    <div className="rounded bg-white/5 px-4 py-3 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="font-semibold truncate">{playerName(room, result.userId)}</div>
+        <div className="text-sm text-white/60 truncate">
+          {result.submittedAnswer || "(blank)"}
+        </div>
+      </div>
+      <div className={result.valueDelta >= 0 ? "text-green-100" : "text-red-100"}>
+        {result.valueDelta >= 0 ? "+" : "-"}
+        <span className="dollar">${Math.abs(result.valueDelta).toLocaleString()}</span>
+      </div>
+    </div>
+  );
+}
+
 function ScoreStrip({ room, meUserId }: { room: Room; meUserId: string }) {
   return (
     <div className="grid gap-2 md:grid-cols-3">
-      {room.players.map((player) => (
+      {contestants(room).map((player) => (
         <div
           key={player.userId}
           className={`rounded px-4 py-3 border ${
@@ -1069,31 +1438,50 @@ function ScoreStrip({ room, meUserId }: { room: Room; meUserId: string }) {
 }
 
 function PlayerRoster({ room }: { room: Room }) {
+  const playerRows = contestants(room).slice().sort((a, b) => a.seat - b.seat);
+  const audienceRows = audienceMembers(room).slice().sort((a, b) => a.seat - b.seat);
+
   return (
     <section className="rounded bg-white/5 p-4 space-y-3">
       <h2 className="font-category text-2xl text-jeopardy-gold">Players</h2>
       <div className="space-y-2">
-        {room.players
-          .slice()
-          .sort((a, b) => a.seat - b.seat)
-          .map((player) => (
+        {playerRows.map((player) => (
+          <div
+            key={player.userId}
+            className="flex items-center justify-between gap-3 rounded bg-white/5 px-3 py-2"
+          >
+            <div className="min-w-0">
+              <div className="font-semibold truncate">
+                Seat {player.seat}: {player.displayName}
+              </div>
+              <div className="text-xs text-white/45">
+                {player.isHost ? "Host | " : ""}
+                {player.left ? "Left room" : player.connected ? "Connected" : "Offline"}
+              </div>
+            </div>
+            <div className="dollar text-lg">${player.score.toLocaleString()}</div>
+          </div>
+        ))}
+      </div>
+      {audienceRows.length > 0 && (
+        <div className="pt-2 border-t border-white/10 space-y-2">
+          <h3 className="font-category text-xl text-jeopardy-gold">Audience</h3>
+          {audienceRows.map((player) => (
             <div
               key={player.userId}
               className="flex items-center justify-between gap-3 rounded bg-white/5 px-3 py-2"
             >
               <div className="min-w-0">
-                <div className="font-semibold truncate">
-                  Seat {player.seat}: {player.displayName}
-                </div>
+                <div className="font-semibold truncate">{player.displayName}</div>
                 <div className="text-xs text-white/45">
-                  {player.isHost ? "Host · " : ""}
                   {player.left ? "Left room" : player.connected ? "Connected" : "Offline"}
                 </div>
               </div>
-              <div className="dollar text-lg">${player.score.toLocaleString()}</div>
+              <div className="text-xs text-white/50">Watching</div>
             </div>
           ))}
-      </div>
+        </div>
+      )}
     </section>
   );
 }

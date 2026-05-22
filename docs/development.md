@@ -171,7 +171,7 @@ Before using it:
 - Browser auth uses an `HttpOnly` same-site cookie; the React auth context bootstraps by calling `/api/auth/me`.
 - A `401` response redirects back to `/login` when appropriate.
 - Practice, Buzzer, and Board persist some in-progress state in `localStorage` to support refresh recovery.
-- `TimerBar` countdowns are keyed by a caller-provided `resetKey`; for server-authoritative timers, pass the phase deadline so ordinary React re-renders do not restart the visual countdown.
+- `TimerBar` countdowns are keyed by a caller-provided `resetKey`; for server-authoritative timers, pass the phase deadline so ordinary React re-renders do not restart the visual countdown. Multiplayer snapshots include `serverNow` so the client can compensate for browser/server clock skew.
 - Multiplayer treats the spacebar as a buzz key only during `BUZZ_OPEN` and only when focus is not inside an interactive control.
 
 ## Multiplayer Development Notes

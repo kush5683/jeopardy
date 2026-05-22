@@ -10,37 +10,48 @@ const TICK_MS = 80;
 //
 export function TimerBar({
   totalMs,
+  initialTimeLeftMs,
   resetKey,
   paused = false,
   onExpire,
 }: {
   totalMs: number;
+  initialTimeLeftMs?: number;
   resetKey: string | number;
   paused?: boolean;
   onExpire: () => void;
 }) {
   const safeTotalMs = Math.max(1, totalMs);
+  const safeInitialTimeLeftMs = Math.min(
+    safeTotalMs,
+    Math.max(0, initialTimeLeftMs ?? safeTotalMs),
+  );
   const [timer, setTimer] = useState({
     durationMs: safeTotalMs,
-    timeLeftMs: safeTotalMs,
+    timeLeftMs: safeInitialTimeLeftMs,
   });
-  const totalMsRef = useRef(safeTotalMs);
-  totalMsRef.current = safeTotalMs;
+  const timerConfigRef = useRef({
+    durationMs: safeTotalMs,
+    timeLeftMs: safeInitialTimeLeftMs,
+  });
+  timerConfigRef.current = {
+    durationMs: safeTotalMs,
+    timeLeftMs: safeInitialTimeLeftMs,
+  };
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
   const firedRef = useRef(false);
 
   useEffect(() => {
-    // Callers often pass "remaining time", which changes on unrelated renders.
     // Only reset the animation when resetKey changes, usually a new deadline.
-    const durationMs = totalMsRef.current;
-    setTimer({ durationMs, timeLeftMs: durationMs });
+    const { durationMs, timeLeftMs } = timerConfigRef.current;
+    setTimer({ durationMs, timeLeftMs });
     firedRef.current = false;
     if (paused) return;
     const startedAt = Date.now();
     const id = setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, durationMs - elapsed);
+      const remaining = Math.max(0, timeLeftMs - elapsed);
       setTimer({ durationMs, timeLeftMs: remaining });
       if (remaining <= 0 && !firedRef.current) {
         firedRef.current = true;

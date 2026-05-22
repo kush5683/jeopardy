@@ -745,7 +745,7 @@ export function Board() {
           >
             <h2 className="font-category text-2xl text-jeopardy-gold">Start multiplayer game</h2>
             <p className="text-white/85 mt-2 text-sm">
-              Host a private live room for up to 3 total players and share a room code for real-time play.
+              Host a private live room for 3 players plus audience and share a room code for real-time play.
             </p>
           </Link>
         </div>

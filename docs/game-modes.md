@@ -193,21 +193,22 @@ Route: `/board/multiplayer`
 
 Purpose:
 
-- private live full-board play for up to 3 total authenticated players
+- private live full-board play for 3 authenticated players plus audience members
 
 Behavior:
 
 - host creates a room from a real episode or mixed board and shares a short room code
-- other logged-in players join by code before the host starts
-- once started, the roster locks; only original players can reconnect
+- the first 3 active seats are players; additional joins enter the audience
+- audience members can join before or after the game starts and follow the player view without playing clues
 - shared server-authoritative board state, scores, and buzz timing
 - non-Daily Double clues have a read timer, then a 5-second buzz window
 - a player can buzz with the on-screen button or spacebar
 - a buzz opens a 5-second answer window for that player
 - wrong or blank answers subtract the clue value, remove that player from the current clue, reset the buzz timer, and let the remaining players buzz
 - the canonical answer stays hidden until a correct response, all active players miss, or the buzz timer expires with no eligible buzz
-- Daily Doubles are controlled by the selector and do not rebuzz
-- Final Jeopardy collects wagers and answers from all eligible players, then resolves together
+- result screens keep the advance button locked for 3 seconds; the player who answered advances regular clues after the answer is readable, with no-buzz results falling back to the host
+- Daily Doubles are controlled by the selector, show live wager entry to the room, and do not rebuzz
+- Final Jeopardy keeps each wager and answer private until the host-driven reveal
 
 Scoring and board control:
 

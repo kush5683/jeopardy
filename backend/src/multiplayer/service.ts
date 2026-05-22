@@ -19,6 +19,7 @@ type PauseState = {
   reason: "HOST_DISCONNECTED";
   remainingMs: number | null;
 } | null;
+type PlayerRole = "PLAYER" | "AUDIENCE";
 
 // Safe to broadcast before RESULT: this tracks who missed and how scoring moved,
 // but never includes the canonical answer while the clue is still live.
@@ -29,6 +30,17 @@ type BuzzAttempt = {
   valueDelta: number;
   llmVerdict: boolean | null;
   timedOut: boolean;
+};
+
+type FinalResult = {
+  userId: string;
+  submittedAnswer: string;
+  correct: boolean;
+  canonicalAnswer: string;
+  valueDelta: number;
+  wager: number;
+  llmVerdict: boolean | null;
+  wagerRevealed?: boolean;
 };
 
 type RoomPhase =
@@ -50,6 +62,7 @@ type RoomPhase =
       playerUserId: string;
       maxWager: number;
       wagerDeadlineAt: string;
+      wagerDraft?: string;
     }
   | {
       kind: "ANSWERING";
@@ -62,11 +75,14 @@ type RoomPhase =
       dailyDouble: boolean;
       buzzedUserIds: string[];
       attempts: BuzzAttempt[];
+      answerDraft?: string;
     }
   | {
       kind: "RESULT";
       round: RoundKind;
       clue: SharedCell;
+      resultBeganAt?: string;
+      advanceUnlocksAt?: string;
       result: {
         answeredByUserId: string | null;
         submittedAnswer: string;
@@ -86,6 +102,7 @@ type RoomPhase =
       wagers: Record<string, number>;
       startedAt: string;
       deadlineAt: string;
+      submittedCount?: number;
     }
   | {
       kind: "FINAL_ANSWER";
@@ -95,18 +112,19 @@ type RoomPhase =
       answers: Record<string, string>;
       startedAt: string;
       deadlineAt: string;
+      submittedCount?: number;
+    }
+  | {
+      kind: "FINAL_REVEAL";
+      clue: SharedCell;
+      eligibleUserIds: string[];
+      results: FinalResult[];
+      revealIndex: number;
+      revealStep: "ANSWER" | "WAGER";
     }
   | {
       kind: "COMPLETE";
-      finalResults: Array<{
-        userId: string;
-        submittedAnswer: string;
-        correct: boolean;
-        canonicalAnswer: string;
-        valueDelta: number;
-        wager: number;
-        llmVerdict: boolean | null;
-      }> | null;
+      finalResults: FinalResult[] | null;
       reason: string | null;
     }
   | { kind: "ABANDONED"; reason: string };
@@ -126,12 +144,21 @@ type Action =
   | { type: "buzz" }
   | { type: "submit-answer"; answer: string }
   | { type: "submit-wager"; wager: number }
+  | { type: "update-draft"; value: string }
   | { type: "advance" };
+
+type LiveDraft = {
+  kind: "dd-wager" | "answer";
+  phaseKey: string;
+  userId: string;
+  value: string;
+};
 
 type Runtime = {
   clients: Map<string, Set<WebSocket>>;
   mainTimer: NodeJS.Timeout | null;
   hostGraceTimer: NodeJS.Timeout | null;
+  draft: LiveDraft | null;
 };
 
 type RoomStatus = "LOBBY" | "LIVE" | "FINAL" | "COMPLETE" | "ABANDONED";
@@ -164,6 +191,7 @@ export type PublicRoomState = {
   code: string;
   status: RoomStatus;
   hostUserId: string;
+  serverNow: string;
   board: SharedEpisode;
   state: RoomState;
   players: Array<{
@@ -171,6 +199,7 @@ export type PublicRoomState = {
     displayName: string;
     seat: number;
     isHost: boolean;
+    role: PlayerRole;
     connected: boolean;
     left: boolean;
     score: number;
@@ -201,6 +230,7 @@ const DD_ANSWER_WINDOW_MS = 15000;
 const FINAL_WAGER_WINDOW_MS = 30000;
 const FINAL_ANSWER_WINDOW_MS = 30000;
 const HOST_RECONNECT_GRACE_MS = 120000;
+const RESULT_ADVANCE_DELAY_MS = 3000;
 
 export const createRoomSchema = z.object({
   source: z.enum(["episode", "mixed"]),
@@ -221,6 +251,10 @@ export const multiplayerActionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("submit-wager"),
     wager: z.number().int().min(0).max(50000),
+  }),
+  z.object({
+    type: z.literal("update-draft"),
+    value: z.string().max(400),
   }),
   z.object({ type: z.literal("advance") }),
 ]);
@@ -253,9 +287,17 @@ function buildInitialState(
   };
 }
 
+function playerRoleFromSeat(seat: number): PlayerRole {
+  return seat <= MAX_PLAYERS ? "PLAYER" : "AUDIENCE";
+}
+
+function isContestant(player: Pick<RoomWithPlayers["players"][number], "seat" | "leftAt">) {
+  return !player.leftAt && playerRoleFromSeat(player.seat) === "PLAYER";
+}
+
 function activePlayers(room: RoomWithPlayers) {
   return room.players
-    .filter((player) => !player.leftAt)
+    .filter(isContestant)
     .sort((a, b) => a.seat - b.seat);
 }
 
@@ -285,6 +327,30 @@ function allActivePlayersAttempted(
 ): boolean {
   const buzzed = new Set(buzzedUserIds);
   return activePlayerUserIds(room).every((playerId) => buzzed.has(playerId));
+}
+
+function nextOpenSeat(
+  players: RoomWithPlayers["players"],
+  minSeat: number,
+  maxSeat: number | null = null,
+): number | null {
+  const occupied = new Set(
+    players
+      .filter((player) => !player.leftAt)
+      .map((player) => player.seat),
+  );
+  for (let seat = minSeat; maxSeat == null || seat <= maxSeat; seat++) {
+    if (!occupied.has(seat)) return seat;
+  }
+  return null;
+}
+
+function ddWagerDraftKey(phase: Extract<RoomPhase, { kind: "DD_WAGER" }>) {
+  return `dd-wager:${phase.clue.id}:${phase.playerUserId}`;
+}
+
+function answerDraftKey(phase: Extract<RoomPhase, { kind: "ANSWERING" }>) {
+  return `answer:${phase.clue.id}:${phase.answeringUserId}:${phase.answerBeganAt}`;
 }
 
 function phaseDeadlineAt(phase: RoomPhase): string | null {
@@ -408,6 +474,28 @@ function readDurationMs(question: string): number {
   return Math.max(MIN_READING_MS, wordCount * READING_RATE_MS_PER_WORD);
 }
 
+function buildResultTiming(now = new Date()) {
+  return {
+    resultBeganAt: now.toISOString(),
+    advanceUnlocksAt: new Date(
+      now.getTime() + RESULT_ADVANCE_DELAY_MS,
+    ).toISOString(),
+  };
+}
+
+function resultAdvanceUnlockMs(
+  phase: Extract<RoomPhase, { kind: "RESULT" }>,
+): number {
+  const explicitUnlock = phase.advanceUnlocksAt
+    ? new Date(phase.advanceUnlocksAt).getTime()
+    : NaN;
+  if (Number.isFinite(explicitUnlock)) return explicitUnlock;
+  const beganAt = phase.resultBeganAt
+    ? new Date(phase.resultBeganAt).getTime()
+    : NaN;
+  return Number.isFinite(beganAt) ? beganAt + RESULT_ADVANCE_DELAY_MS : 0;
+}
+
 function maxDailyDoubleWager(round: RoundKind, score: number): number {
   return Math.max(score, round === "JEOPARDY" ? 1000 : 2000);
 }
@@ -431,6 +519,7 @@ function serializeRoom(
     code: room.code,
     status: room.status,
     hostUserId: room.hostUserId,
+    serverNow: new Date().toISOString(),
     board,
     state,
     players: room.players
@@ -440,6 +529,7 @@ function serializeRoom(
         displayName: player.user.displayName,
         seat: player.seat,
         isHost: player.userId === room.hostUserId,
+        role: playerRoleFromSeat(player.seat),
         connected: Boolean(runtime?.clients.get(player.userId)?.size),
         left: Boolean(player.leftAt),
         score: state.scores[player.userId] ?? 0,
@@ -447,6 +537,96 @@ function serializeRoom(
     createdAt: room.createdAt.toISOString(),
     startedAt: room.startedAt?.toISOString() ?? null,
     completedAt: room.completedAt?.toISOString() ?? null,
+  };
+}
+
+function personalizeRoom(
+  snapshot: PublicRoomState,
+  viewerUserId: string,
+  runtime: Runtime | undefined,
+): PublicRoomState {
+  const viewer = snapshot.players.find((player) => player.userId === viewerUserId);
+  const isAudience = viewer?.role === "AUDIENCE" && !viewer.left;
+  const phase = snapshot.state.phase;
+  let personalizedPhase: RoomPhase = phase;
+
+  if (phase.kind === "DD_WAGER") {
+    const draft = runtime?.draft;
+    personalizedPhase = {
+      ...phase,
+      wagerDraft:
+        draft?.kind === "dd-wager" &&
+        draft.phaseKey === ddWagerDraftKey(phase) &&
+        draft.userId === phase.playerUserId
+          ? draft.value
+          : "",
+    };
+  } else if (phase.kind === "ANSWERING") {
+    const draft = runtime?.draft;
+    personalizedPhase = {
+      ...phase,
+      answerDraft:
+        isAudience &&
+        !phase.dailyDouble &&
+        draft?.kind === "answer" &&
+        draft.phaseKey === answerDraftKey(phase) &&
+        draft.userId === phase.answeringUserId
+          ? draft.value
+          : "",
+    };
+  } else if (phase.kind === "FINAL_WAGER") {
+    const ownWagers =
+      viewer?.role === "PLAYER" && viewerUserId in phase.wagers
+        ? { [viewerUserId]: phase.wagers[viewerUserId] }
+        : {};
+    personalizedPhase = {
+      ...phase,
+      wagers: ownWagers,
+      submittedCount: Object.keys(phase.wagers).length,
+    };
+  } else if (phase.kind === "FINAL_ANSWER") {
+    const ownWagers =
+      viewer?.role === "PLAYER" && viewerUserId in phase.wagers
+        ? { [viewerUserId]: phase.wagers[viewerUserId] }
+        : {};
+    const ownAnswers =
+      viewer?.role === "PLAYER" && viewerUserId in phase.answers
+        ? { [viewerUserId]: phase.answers[viewerUserId] }
+        : {};
+    personalizedPhase = {
+      ...phase,
+      wagers: ownWagers,
+      answers: ownAnswers,
+      submittedCount: Object.keys(phase.answers).length,
+    };
+  } else if (phase.kind === "FINAL_REVEAL") {
+    const visibleCount = Math.min(phase.revealIndex + 1, phase.results.length);
+    const visibleResults = phase.results.slice(0, visibleCount).map((result, idx) => {
+      const wagerRevealed =
+        idx < phase.revealIndex || phase.revealStep === "WAGER";
+      return wagerRevealed
+        ? { ...result, wagerRevealed: true }
+        : {
+            ...result,
+            valueDelta: 0,
+            wager: 0,
+            wagerRevealed: false,
+          };
+    });
+    personalizedPhase = {
+      ...phase,
+      results: visibleResults,
+    };
+  }
+
+  return {
+    ...snapshot,
+    state: {
+      ...snapshot.state,
+      scores: { ...snapshot.state.scores },
+      phase: personalizedPhase,
+    },
+    players: snapshot.players.map((player) => ({ ...player })),
   };
 }
 
@@ -466,7 +646,9 @@ export class MultiplayerService {
         : await getMixedBoard();
     const room = await this.createRoomRecord(params.hostUserId, board);
     const state = getRoomState(room);
-    return serializeRoom(room, state, board, this.runtimes.get(room.id));
+    const runtime = this.runtimes.get(room.id);
+    const snapshot = serializeRoom(room, state, board, runtime);
+    return personalizeRoom(snapshot, params.hostUserId, runtime);
   }
 
   async joinRoom(codeRaw: string, userId: string): Promise<PublicRoomState> {
@@ -478,39 +660,26 @@ export class MultiplayerService {
       const state = getRoomState(current);
       const board = getBoardPayload(current);
 
-      if (current.status !== "LOBBY") {
-        if (!existing || existing.leftAt) {
-          throw this.httpError(409, "room already started");
-        }
-        return serializeRoom(
-          current,
-          state,
-          board,
-          this.runtimes.get(current.id),
-        );
-      }
-
       if (existing) {
         if (existing.leftAt) {
           throw this.httpError(409, "room seat is no longer available");
         }
-        return serializeRoom(
-          current,
-          state,
-          board,
-          this.runtimes.get(current.id),
-        );
+        const runtime = this.runtimes.get(current.id);
+        const snapshot = serializeRoom(current, state, board, runtime);
+        return personalizeRoom(snapshot, userId, runtime);
       }
 
-      const joined = activePlayers(current);
-      if (joined.length >= MAX_PLAYERS) {
-        throw this.httpError(409, "room is full");
+      if (current.status === "COMPLETE" || current.status === "ABANDONED") {
+        throw this.httpError(409, "room has ended");
       }
-      const seat = [1, 2, 3].find(
-        (value) => !joined.some((player) => player.seat === value),
-      );
+
+      const playerSeat =
+        current.status === "LOBBY"
+          ? nextOpenSeat(current.players, 1, MAX_PLAYERS)
+          : null;
+      const seat = playerSeat ?? nextOpenSeat(current.players, MAX_PLAYERS + 1);
       if (!seat) {
-        throw this.httpError(409, "room is full");
+        throw this.httpError(409, "audience is full");
       }
 
       const nextState: RoomState = {
@@ -535,6 +704,7 @@ export class MultiplayerService {
       ]);
 
       const updated = await this.loadRoomByCode(code);
+      await this.ensureRoomRuntime(updated);
       const snapshot = serializeRoom(
         updated,
         nextState,
@@ -542,7 +712,7 @@ export class MultiplayerService {
         this.runtimes.get(updated.id),
       );
       this.broadcastSnapshot(updated.id, snapshot);
-      return snapshot;
+      return personalizeRoom(snapshot, userId, this.runtimes.get(updated.id));
     });
   }
 
@@ -556,12 +726,14 @@ export class MultiplayerService {
       throw this.httpError(403, "not a member of this room");
     }
     const hydrated = await this.ensureRoomRuntime(room);
-    return serializeRoom(
+    const runtime = this.runtimes.get(hydrated.id);
+    const snapshot = serializeRoom(
       hydrated,
       getRoomState(hydrated),
       getBoardPayload(hydrated),
-      this.runtimes.get(hydrated.id),
+      runtime,
     );
+    return personalizeRoom(snapshot, userId, runtime);
   }
 
   async startRoom(codeRaw: string, userId: string): Promise<PublicRoomState> {
@@ -602,7 +774,7 @@ export class MultiplayerService {
         this.runtimes.get(updated.id),
       );
       this.broadcastSnapshot(updated.id, snapshot);
-      return snapshot;
+      return personalizeRoom(snapshot, userId, this.runtimes.get(updated.id));
     });
   }
 
@@ -620,7 +792,12 @@ export class MultiplayerService {
       const state = getRoomState(current);
       if (current.status === "LOBBY") {
         if (userId === current.hostUserId) {
-          return this.abandonRoom(current, state, "Host closed the room.");
+          const snapshot = await this.abandonRoom(
+            current,
+            state,
+            "Host closed the room.",
+          );
+          return personalizeRoom(snapshot, userId, this.runtimes.get(current.id));
         }
         const nextScores = { ...state.scores };
         delete nextScores[userId];
@@ -638,7 +815,12 @@ export class MultiplayerService {
         ]);
       } else {
         if (userId === current.hostUserId) {
-          return this.abandonRoom(current, state, "Host left the game.");
+          const snapshot = await this.abandonRoom(
+            current,
+            state,
+            "Host left the game.",
+          );
+          return personalizeRoom(snapshot, userId, this.runtimes.get(current.id));
         }
         state.selectorUserId =
           state.selectorUserId === userId
@@ -666,7 +848,7 @@ export class MultiplayerService {
         this.runtimes.get(updated.id),
       );
       this.broadcastSnapshot(updated.id, snapshot);
-      return snapshot;
+      return personalizeRoom(snapshot, userId, this.runtimes.get(updated.id));
     });
   }
 
@@ -735,7 +917,10 @@ export class MultiplayerService {
       getBoardPayload(hydrated),
       this.runtimes.get(hydrated.id),
     );
-    this.sendJson(socket, { type: "room-state", room: snapshot });
+    this.sendJson(socket, {
+      type: "room-state",
+      room: personalizeRoom(snapshot, userId, this.runtimes.get(hydrated.id)),
+    });
     this.broadcastSnapshot(hydrated.id, snapshot);
   }
 
@@ -805,6 +990,9 @@ export class MultiplayerService {
 
   async handleAction(codeRaw: string, userId: string, action: Action) {
     const code = normalizeRoomCode(codeRaw);
+    if (action.type === "update-draft") {
+      return this.handleDraftUpdate(code, userId, action.value);
+    }
     const room = await this.loadRoomByCode(code);
     return this.withRoomLock(room.id, async () => {
       const current = await this.loadRoomByCode(code);
@@ -817,6 +1005,9 @@ export class MultiplayerService {
       );
       if (!player) {
         throw this.httpError(403, "not a member of this room");
+      }
+      if (!isContestant(player)) {
+        throw this.httpError(403, "audience members cannot play clues");
       }
       let updatedRoom = current;
       let nextState = state;
@@ -882,7 +1073,7 @@ export class MultiplayerService {
         this.runtimes.get(updatedRoom.id),
       );
       this.broadcastSnapshot(updatedRoom.id, snapshot);
-      return snapshot;
+      return personalizeRoom(snapshot, userId, this.runtimes.get(updatedRoom.id));
     });
   }
 
@@ -973,6 +1164,55 @@ export class MultiplayerService {
     }
   }
 
+  private async handleDraftUpdate(
+    code: string,
+    userId: string,
+    valueRaw: string,
+  ): Promise<PublicRoomState> {
+    const room = await this.loadRoomByCode(code);
+    const member = room.players.find(
+      (entry) => entry.userId === userId && !entry.leftAt,
+    );
+    if (!member) {
+      throw this.httpError(403, "not a member of this room");
+    }
+    if (!isContestant(member)) {
+      throw this.httpError(403, "audience members cannot submit live input");
+    }
+    const state = getRoomState(room);
+    if (state.paused) {
+      throw this.httpError(409, "room is paused while the host reconnects");
+    }
+
+    const runtime = this.getRuntime(room.id);
+    const value = valueRaw.slice(0, 400);
+    if (state.phase.kind === "DD_WAGER" && state.phase.playerUserId === userId) {
+      runtime.draft = {
+        kind: "dd-wager",
+        phaseKey: ddWagerDraftKey(state.phase),
+        userId,
+        value: value.replace(/[^\d]/g, "").slice(0, 6),
+      };
+    } else if (
+      state.phase.kind === "ANSWERING" &&
+      state.phase.answeringUserId === userId &&
+      !state.phase.dailyDouble
+    ) {
+      runtime.draft = {
+        kind: "answer",
+        phaseKey: answerDraftKey(state.phase),
+        userId,
+        value,
+      };
+    } else {
+      throw this.httpError(409, "the room is not accepting live input");
+    }
+
+    const snapshot = serializeRoom(room, state, getBoardPayload(room), runtime);
+    this.broadcastSnapshot(room.id, snapshot);
+    return personalizeRoom(snapshot, userId, runtime);
+  }
+
   private getRuntime(roomId: string): Runtime {
     const existing = this.runtimes.get(roomId);
     if (existing) return existing;
@@ -980,6 +1220,7 @@ export class MultiplayerService {
       clients: new Map(),
       mainTimer: null,
       hostGraceTimer: null,
+      draft: null,
     };
     this.runtimes.set(roomId, runtime);
     return runtime;
@@ -1454,6 +1695,7 @@ export class MultiplayerService {
           kind: "RESULT",
           round: state.phase.round,
           clue: state.phase.clue,
+          ...buildResultTiming(),
           result: {
             answeredByUserId: userId,
             submittedAnswer: answer.trim(),
@@ -1475,11 +1717,30 @@ export class MultiplayerService {
     state: RoomState,
     userId: string,
   ): { state: RoomState; status: RoomStatus } {
-    if (room.hostUserId !== userId) {
-      throw this.httpError(403, "only the host can advance the room");
+    if (state.phase.kind === "FINAL_REVEAL") {
+      if (room.hostUserId !== userId) {
+        throw this.httpError(403, "only the host can advance Final Jeopardy");
+      }
+      return this.advanceFinalReveal(state);
     }
     if (state.phase.kind !== "RESULT") {
       throw this.httpError(409, "there is no result screen to advance");
+    }
+    const answeredByUserId = state.phase.result.answeredByUserId;
+    const answeredByActive = answeredByUserId
+      ? activePlayerUserIds(room).includes(answeredByUserId)
+      : false;
+    const advanceUserId = answeredByActive ? answeredByUserId : room.hostUserId;
+    if (advanceUserId !== userId) {
+      throw this.httpError(
+        403,
+        answeredByActive
+          ? "only the player who answered can advance this clue"
+          : "only the host can advance this clue",
+      );
+    }
+    if (Date.now() < resultAdvanceUnlockMs(state.phase)) {
+      throw this.httpError(409, "the answer reveal is still in its read delay");
     }
     const board = getBoardPayload(room);
     const currentRound = state.phase.round;
@@ -1554,6 +1815,73 @@ export class MultiplayerService {
     };
   }
 
+  private advanceFinalReveal(
+    state: RoomState,
+  ): { state: RoomState; status: RoomStatus } {
+    if (state.phase.kind !== "FINAL_REVEAL") {
+      return { state, status: "FINAL" };
+    }
+    const phase = state.phase;
+    const current = phase.results[phase.revealIndex];
+    if (!current) {
+      return {
+        status: "COMPLETE",
+        state: {
+          ...state,
+          phase: {
+            kind: "COMPLETE",
+            finalResults: phase.results,
+            reason: null,
+          },
+        },
+      };
+    }
+
+    if (phase.revealStep === "ANSWER") {
+      return {
+        status: "FINAL",
+        state: {
+          ...state,
+          scores: {
+            ...state.scores,
+            [current.userId]: (state.scores[current.userId] ?? 0) + current.valueDelta,
+          },
+          phase: {
+            ...phase,
+            revealStep: "WAGER",
+          },
+        },
+      };
+    }
+
+    const nextIndex = phase.revealIndex + 1;
+    if (nextIndex < phase.results.length) {
+      return {
+        status: "FINAL",
+        state: {
+          ...state,
+          phase: {
+            ...phase,
+            revealIndex: nextIndex,
+            revealStep: "ANSWER",
+          },
+        },
+      };
+    }
+
+    return {
+      status: "COMPLETE",
+      state: {
+        ...state,
+        phase: {
+          kind: "COMPLETE",
+          finalResults: phase.results,
+          reason: null,
+        },
+      },
+    };
+  }
+
   private async passClueOnNoBuzz(
     room: RoomWithPlayers,
     state: RoomState,
@@ -1567,6 +1895,7 @@ export class MultiplayerService {
       kind: "RESULT",
       round: state.phase.round,
       clue: state.phase.clue,
+      ...buildResultTiming(),
       result: {
         answeredByUserId: null,
         submittedAnswer: "",
@@ -1623,21 +1952,20 @@ export class MultiplayerService {
     if (state.phase.kind !== "FINAL_ANSWER") {
       return { state, status: room.status };
     }
-    const scores = { ...state.scores };
-    const finalResults: Array<{
-      userId: string;
-      submittedAnswer: string;
-      correct: boolean;
-      canonicalAnswer: string;
-      valueDelta: number;
-      wager: number;
-      llmVerdict: boolean | null;
-    }> = [];
+    const finalResults: FinalResult[] = [];
     const responseTimeMs = Math.min(
       FINAL_ANSWER_WINDOW_MS,
       Math.max(0, Date.now() - new Date(state.phase.startedAt).getTime()),
     );
-    for (const userId of state.phase.eligibleUserIds) {
+    const seatByUserId = new Map(
+      room.players.map((player) => [player.userId, player.seat]),
+    );
+    const revealUserIds = [...state.phase.eligibleUserIds].sort(
+      (a, b) =>
+        (state.scores[a] ?? 0) - (state.scores[b] ?? 0) ||
+        (seatByUserId.get(a) ?? 0) - (seatByUserId.get(b) ?? 0),
+    );
+    for (const userId of revealUserIds) {
       const submittedAnswer = state.phase.answers[userId] ?? "";
       const wager = state.phase.wagers[userId] ?? 0;
       const verdict = await submitClueAnswer({
@@ -1648,7 +1976,6 @@ export class MultiplayerService {
         mode: "FINAL",
         wager,
       });
-      scores[userId] = (scores[userId] ?? 0) + verdict.valueDelta;
       finalResults.push({
         userId,
         submittedAnswer,
@@ -1660,14 +1987,16 @@ export class MultiplayerService {
       });
     }
     return {
-      status: "COMPLETE",
+      status: "FINAL",
       state: {
         ...state,
-        scores,
         phase: {
-          kind: "COMPLETE",
-          finalResults,
-          reason: null,
+          kind: "FINAL_REVEAL",
+          clue: state.phase.clue,
+          eligibleUserIds: state.phase.eligibleUserIds,
+          results: finalResults,
+          revealIndex: 0,
+          revealStep: "ANSWER",
         },
       },
     };
@@ -1706,8 +2035,11 @@ export class MultiplayerService {
   private broadcastSnapshot(roomId: string, snapshot: PublicRoomState) {
     const runtime = this.runtimes.get(roomId);
     if (!runtime) return;
-    const payload = JSON.stringify({ type: "room-state", room: snapshot });
-    for (const sockets of runtime.clients.values()) {
+    for (const [userId, sockets] of runtime.clients.entries()) {
+      const payload = JSON.stringify({
+        type: "room-state",
+        room: personalizeRoom(snapshot, userId, runtime),
+      });
       for (const socket of sockets) {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(payload);

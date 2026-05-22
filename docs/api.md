@@ -124,9 +124,9 @@ WebSocket:
 Room rules:
 
 - room codes are 6 characters from `A-Z` and `2-9`
-- maximum 3 total players per room, including the host
-- joins are only allowed while the room is in `LOBBY`
-- active gameplay actions are sent over the websocket: clue selection, buzzing, wagering, answering, and host advance
+- maximum 3 player seats per room, including the host; additional joins enter the audience
+- audience joins are allowed before or during live play
+- active gameplay actions are sent over the websocket: clue selection, buzzing, wagering, answering, live input drafts, result advance, and host Final Jeopardy advance
 
 Client action messages:
 
@@ -147,15 +147,22 @@ Client action messages:
 ```
 
 ```json
+{ "type": "update-draft", "value": "What is Paris?" }
+```
+
+```json
 { "type": "advance" }
 ```
 
 Multiplayer phase notes:
 
+- Room snapshots include `serverNow`; clients use it with phase deadlines so visual countdowns stay aligned even if the browser clock differs from the server clock.
 - `READING`, `BUZZ_OPEN`, `DD_WAGER`, `ANSWERING`, `FINAL_WAGER`, and `FINAL_ANSWER` carry server deadlines; clients render timers from those deadlines but the server is authoritative.
 - `BUZZ_OPEN.buzzedUserIds` lists players who are out for the current clue after a wrong or timed-out answer.
 - `BUZZ_OPEN.attempts` carries prior missed attempts for the current clue but does not include the canonical answer.
 - `RESULT.result.canonicalAnswer` is the first regular-clue phase where the correct answer is sent to clients.
+- `RESULT.resultBeganAt` and `RESULT.advanceUnlocksAt` define the 3-second answer-read delay before the result can advance.
+- For regular clue `RESULT`, the active player in `answeredByUserId` advances after the delay; no-buzz results fall back to the host.
 - On non-Daily Double clues, an incorrect or blank answer returns the room to `BUZZ_OPEN` with a fresh `buzzClosesAt` unless every active player has already attempted the clue.
 
 ### `GET /clues/random`
