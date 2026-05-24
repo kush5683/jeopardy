@@ -2,7 +2,7 @@
 
 Train on real Jeopardy-style clues, drill buzzer timing, run full boards, review missed clues, and study with flashcards.
 
-Last deploy: 2026-05-24 17:36:55 UTC
+Last deploy: 2026-05-24 18:01:01 UTC
 Hosted at: https://jeopardy.kushshah.net
 
 Internal deployment details are intentionally kept out of source control.
